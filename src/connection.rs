@@ -1,86 +1,74 @@
 use std::io;
+use std::thread;
 
-pub enum Event {
+use reader;
+use utils::debug;
+
+pub enum ConnEvent {
   Send( String ),
-  Receive( String ),
-}
-
-pub enum Result {
-  Ok,
-  Error( String ),
+  Recv( String ),
+  Abort( String ),
 }
 
 pub struct ServerConnection {
-  pub tcp       : io::TcpStream,
-  pub host      : String,
-  pub port      : u16,
-  pub sx        : Sender <Event>,
-  pub rx        : Receiver <Event>,
-  pub connected : bool,
+  pub host  : String,
+  pub port  : u16,
+  pub pass  : String,
+
+  tcp   : io::TcpStream,
+
+  chan  : Sender < ConnEvent >,
+  listen: Receiver < ConnEvent >,
 }
 
 impl ServerConnection {
-  pub fn new( host : &str, port : u16 ) -> ServerConnection {
-    let address = format! ( "{}:{}", host, port );
-    let tcp = match io::TcpStream::connect( addr[] ) {
-      Ok( x )  => x,
-      Err( e ) => {
-        output::panic( "in new ServerConnection", e );
+  pub fn connect( host : &str, port : u16, pass : &str ) 
+    -> ServerConnection {
+    let target = format!( "{}:{}", host, port );
+    let mut tcp = match io::TcpStream::connect( target ) {
+      Ok (res)  => res,
+      Err (e)   => {
+        debug::err( "establishing server connection", e.desc );
       },
-    }
-    output::info( format! ( "connected to {}:{}", host, port ) );
+    };
+    let out = format! ( "connected to {} successfully", target );
+    debug::oper( out.as_slice( ) );
     
-    let ( tx, rx ) = channel();
+    let( tx, rx ) = channel( );
+    
+    if !pass.is_empty( ) {
+      tx.send( ConnEvent::Send( format! ( "PASS {}", pass ) ) );
+    }
     
     ServerConnection {
-      tcp   : tcp,
-      host  : host.to_string(),
-      port  : port,
-      tx    : tx,
-      rx    : rx,
+      host    : host.to_string( ),
+      port    : port,
+      pass    : pass.to_string( ),
+      tcp     : tcp,
+      chan    : tx,
+      listen  : rx,
     }
   }
-  
-  pub fn close( mut self ) {
-    match self.tcp.close_read() {
-      Err(e)  => output::error( "closing read", e ),
-      _       => (),
-    };
-    
-    match self.tcp.close_write() {
-      Err(e)  => output::error( "closing write", e ),
-      _       => (),
-    };
-    
-    drop( self.tcp.clone() );
-  }
-  
-  pub fn write( &self, s : &String ) {
-    let s = s[];
-    output::msg( s );
-    _write_line( 
-  }
-  
-}
 
-fn _write_line( 
-  stream : &mut io::LineBufferedWriter < TcpStream >,
-  line   : &str
-) {
-  match stream.write_line( line ) {
-    Err(e)  => output::error( "writing line", e ),
-    _       => (),
+  pub fn close( &mut self ) {
+    let out = format! ( "closing connection to {}:{}...", self.host, self.port );
+    debug::oper( out.as_slice( ) );
+    match self.tcp.close_read( ) {
+      Err(e) => debug::err( "closing server read connection", e.desc ),
+      _      => debug::info( "read closed successfully" ),
+    };
+    match self.tcp.close_write( ) {
+      Err(e) => debug::err( "closing server write connection", e.desc ),
+      _      => debug::info( "write closed successfully" ),
+    }
+    drop( self.tcp.clone( ) );
+    debug::oper( "server connection closed successfully" );
   }
-}
-
-fn _read_line(
-  stream : &mut io::BufferedReader < TcpStream >
-) -> Option < String > {
-  match stream.read_line() {
-    Ok (x) => Some(x),
-    Err (x) => {
-      output::error( "reading line", e );
-      None
-    },
+  
+  pub fn spawn_reader( &self ) -> thread::Thread {
+    thread::Thread::spawn( move || {
+      let mut rdr = reader::IrcReader::new(self.tcp.clone(), self.chan.clone());
+      rdr.start( );
+    } )
   }
 }
