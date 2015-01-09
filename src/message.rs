@@ -1,7 +1,5 @@
-#![feature(slicing_syntax)]
-extern crate regex;
-
 use regex::Regex;
+use std::fmt;
 
 /// `Source` abstracts the source of an IRC message
 ///
@@ -174,11 +172,11 @@ impl Message {
   }
 }
 
-impl std::fmt::Show for Message {
-  fn fmt( &self, f : &mut std::fmt::Formatter ) -> std::fmt::Result {
-    write! ( f, "{}", self.raw.as_slice( ) )
-  }
-}
+// impl std::fmt::Show for Message {
+  // fn fmt( &self, f : &mut std::fmt::Formatter ) -> std::fmt::Result {
+    // write! ( f, "{}", self.raw.as_slice( ) )
+  // }
+// }
 
 /// `raw_from_data` generates a raw message from a set of data
 ///

@@ -42,7 +42,6 @@ impl IrcReader {
     let mut try   = 0u;
     let mut time  = 5;
     let mut read  = io::BufferedReader::new( self.tcp.clone( ) );
-    
     // Check that we're connected to a peer
     match self.tcp.peer_name() {
       Ok ( peer ) => {

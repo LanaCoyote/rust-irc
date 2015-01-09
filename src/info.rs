@@ -1,7 +1,7 @@
-struct IrcInfo {
-  pub nick_name : &str,
-  pub user_name : &str,
-  pub real_name : &str,
+pub struct IrcInfo {
+  pub nick_name : String,
+  pub user_name : String,
+  pub real_name : String,
   
-  pub channels  : Vec < &str >,
+  pub channels  : Vec < String >,
 }
