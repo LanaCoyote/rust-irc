@@ -54,8 +54,6 @@ impl Client {
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
-    let out = format! ( "handling recvd message: {}", s );
-    debug::info( out.as_slice( ) );
     // parse our raw string into a usable message
     let msg = match message::Message::parse( s.as_slice() ) {
       Some ( m ) => m,
