@@ -46,11 +46,15 @@ impl IrcReader {
     // Check that we're connected to a peer
     match self.tcp.peer_name() {
       Ok ( peer ) => {
-        let out = format! ("opening irc reader at {}", peer );
+        let out = format! ("opening irc reader at {}...", peer );
         debug::oper( out.as_slice( ) );
       },
       Err ( e )   => {
         debug::err( "opening irc reader", e.desc );
+        match e.detail {
+          Some( det ) => debug::info( det.as_slice( ) ),
+          None        => (),
+        };
         return;
       },
     }
@@ -100,7 +104,11 @@ impl IrcReader {
       }
     }
     
-    debug::oper( "closing irc reader" );
+    debug::oper( "closing irc reader..." );
+    match self.chan.send( connection::ConnEvent::Abort( String::from_str( "irc reader closed" ) ) ) {
+      Ok ( _ )  => (),
+      Err ( e ) => debug::err( "closing irc reader", "" ),
+    }
   }
 }
 
