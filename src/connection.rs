@@ -1,86 +1,123 @@
 use std::io;
+use std::sync::mpsc;
 
-pub enum Event {
+use utils::debug;
+
+/// `ConnEvent` defines the various actions our connection might use
+///
+/// # Options
+///
+/// `Send` - send this message to the server
+/// `Recv` - this message was received from the server
+/// `Abort` - shut down connection and close
+pub enum ConnEvent {
   Send( String ),
-  Receive( String ),
+  Recv( String ),
+  Abort( String ),
 }
 
-pub enum Result {
-  Ok,
-  Error( String ),
-}
-
+/// `ServerConnection` manages an IRC connection
+///
+/// # Members
+///
+/// `host` - the host of the server we're connected to
+/// `port` - the port we're connected to the server through
+/// `pass` - the password of the server
+/// `tcp` - the TcpStream to the server
+/// `chan` - transmission half of our thread channel
+/// `listen` - listener half of our thread channel
 pub struct ServerConnection {
-  pub tcp       : io::TcpStream,
-  pub host      : String,
-  pub port      : u16,
-  pub sx        : Sender <Event>,
-  pub rx        : Receiver <Event>,
-  pub connected : bool,
+  pub host  : String,
+  pub port  : u16,
+  pub pass  : String,
+
+  pub tcp   : io::TcpStream,
+
+  pub chan  : mpsc::Sender < ConnEvent >,
+  pub listen: mpsc::Receiver < ConnEvent >,
 }
 
 impl ServerConnection {
-  pub fn new( host : &str, port : u16 ) -> ServerConnection {
-    let address = format! ( "{}:{}", host, port );
-    let tcp = match io::TcpStream::connect( addr[] ) {
-      Ok( x )  => x,
-      Err( e ) => {
-        output::panic( "in new ServerConnection", e );
+  /// `connect` establishes a new connection to a given host and port
+  ///
+  /// # Arguments
+  ///
+  /// `host` - server host to connect to
+  /// `port` - port number to connect to the server on
+  /// `pass` - password for the irc server
+  ///
+  /// # Returns
+  ///
+  /// A new ServerConnection struct that is connected to the target server
+  pub fn connect ( host : &str, port : u16, pass : &str ) 
+    -> ServerConnection {
+    // Format the server address and attempt a connection
+    let target = format!( "{}:{}", host, port );
+    let out = format!( "establishing connection to {}...", target );
+    debug::oper( out.as_slice( ) );
+    let tcp = match io::TcpStream::connect( target.as_slice( ) ) {
+      Ok (res)  => res,
+      Err (e)   => {
+        debug::err( "establishing server connection", e.desc );
+        panic! ( "connection failure is not implemented" );
       },
+    };
+    debug::oper( "connection established!" );
+    
+    // Create a channel for communication between spawned threads
+    let( tx, rx ) = mpsc::channel( );
+    
+    // Send a password message to the message buffer
+    if !pass.is_empty( ) {
+      match tx.send( ConnEvent::Send( format! ( "PASS {}", pass ) ) ) {
+        Ok ( _ )  => (),
+        Err ( e ) => debug::err( "sending password to server", "" ),
+      }
     }
-    output::info( format! ( "connected to {}:{}", host, port ) );
     
-    let ( tx, rx ) = channel();
-    
+    // Build the server struct
     ServerConnection {
-      tcp   : tcp,
-      host  : host.to_string(),
-      port  : port,
-      tx    : tx,
-      rx    : rx,
+      host    : host.to_string( ),
+      port    : port,
+      pass    : pass.to_string( ),
+      tcp     : tcp,
+      chan    : tx,
+      listen  : rx,
     }
   }
-  
-  pub fn close( mut self ) {
-    match self.tcp.close_read() {
-      Err(e)  => output::error( "closing read", e ),
-      _       => (),
+
+  /// `close` severs the connection with the server and shuts down the stream
+  pub fn close( &mut self ) {
+    let out = format! ( "closing connection to {}:{}...", self.host, self.port );
+    debug::oper( out.as_slice( ) );
+    
+    // Close the read stream
+    match self.tcp.close_read( ) {
+      Err(e) => debug::err( "closing server read connection", e.desc ),
+      _      => debug::info( "read closed successfully" ),
     };
     
-    match self.tcp.close_write() {
-      Err(e)  => output::error( "closing write", e ),
-      _       => (),
-    };
+    // Close the write stream
+    match self.tcp.close_write( ) {
+      Err(e) => debug::err( "closing server write connection", e.desc ),
+      _      => debug::info( "write closed successfully" ),
+    }
     
-    drop( self.tcp.clone() );
+    // Now close ourselves
+    drop( self.tcp.clone( ) );
+    debug::oper( "server connection closed successfully" );
   }
   
-  pub fn write( &self, s : &String ) {
-    let s = s[];
-    output::msg( s );
-    _write_line( 
-  }
+  /// `spin_reader` spins up a new IrcReader in a separate thread
+  // pub fn spin_reader ( &self ) {
+    // let rthread = thread::Thread::spawn( move || {
+      // let mut rdr = reader::IrcReader::new(self.tcp.clone(), self.chan.clone());
+      // rdr.start( );
+    // } );
+  // }
   
-}
-
-fn _write_line( 
-  stream : &mut io::LineBufferedWriter < TcpStream >,
-  line   : &str
-) {
-  match stream.write_line( line ) {
-    Err(e)  => output::error( "writing line", e ),
-    _       => (),
-  }
-}
-
-fn _read_line(
-  stream : &mut io::BufferedReader < TcpStream >
-) -> Option < String > {
-  match stream.read_line() {
-    Ok (x) => Some(x),
-    Err (x) => {
-      output::error( "reading line", e );
-      None
-    },
+  /// `spin_writer` spins up a new IrcWriter and returns a handle to it
+  pub fn spin_writer( &self ) -> io::LineBufferedWriter < io::TcpStream > {
+    io::LineBufferedWriter::new( self.tcp.clone() )
   }
 }

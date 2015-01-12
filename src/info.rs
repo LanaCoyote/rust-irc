@@ -1,20 +1,18 @@
-use config;
-
-pub struct IrcInfo <'info> {
-  pub nick_name : &'info str,
-  pub user_name : &'info str,
-  pub real_name : &'info str,
+pub struct IrcInfo {
+  pub nick_name : String,
+  pub user_name : String,
+  pub real_name : String,
   
-  pub channels  : Vec<&'info str>,
+  pub channels  : Vec < String >,
 }
 
-impl <'info> IrcInfo <'info> {
-  pub fn new <'a> ( cfg : config::IrcConfig ) -> IrcInfo<'a> {
+impl Clone for IrcInfo {
+  fn clone( &self ) -> IrcInfo {
     IrcInfo {
-      nick_name : cfg.nick_name,
-      user_name : cfg.user_name,
-      real_name : cfg.real_name,
-      channels  : cfg.channels,
+      nick_name : self.nick_name.clone( ),
+      user_name : self.user_name.clone( ),
+      real_name : self.real_name.clone( ),
+      channels  : self.channels.clone( ),
     }
   }
 }
