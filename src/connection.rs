@@ -1,7 +1,6 @@
 use std::io;
-use std::thread;
+use std::sync::mpsc;
 
-use reader;
 use utils::debug;
 
 /// `ConnEvent` defines the various actions our connection might use
@@ -27,18 +26,18 @@ pub enum ConnEvent {
 /// `tcp` - the TcpStream to the server
 /// `chan` - transmission half of our thread channel
 /// `listen` - listener half of our thread channel
-pub struct ServerConnection <'sc> {
+pub struct ServerConnection {
   pub host  : String,
   pub port  : u16,
   pub pass  : String,
 
   pub tcp   : io::TcpStream,
 
-  pub chan  : Sender < ConnEvent >,
-  pub listen: Receiver < ConnEvent >,
+  pub chan  : mpsc::Sender < ConnEvent >,
+  pub listen: mpsc::Receiver < ConnEvent >,
 }
 
-impl <'sc> ServerConnection <'sc> {
+impl ServerConnection {
   /// `connect` establishes a new connection to a given host and port
   ///
   /// # Arguments
@@ -50,13 +49,13 @@ impl <'sc> ServerConnection <'sc> {
   /// # Returns
   ///
   /// A new ServerConnection struct that is connected to the target server
-  pub fn connect <'a> ( host : &str, port : u16, pass : &str ) 
-    -> ServerConnection <'a> {
+  pub fn connect ( host : &str, port : u16, pass : &str ) 
+    -> ServerConnection {
     // Format the server address and attempt a connection
     let target = format!( "{}:{}", host, port );
     let out = format!( "establishing connection to {}...", target );
     debug::oper( out.as_slice( ) );
-    let mut tcp = match io::TcpStream::connect( target.as_slice( ) ) {
+    let tcp = match io::TcpStream::connect( target.as_slice( ) ) {
       Ok (res)  => res,
       Err (e)   => {
         debug::err( "establishing server connection", e.desc );
@@ -66,11 +65,14 @@ impl <'sc> ServerConnection <'sc> {
     debug::oper( "connection established!" );
     
     // Create a channel for communication between spawned threads
-    let( tx, rx ) = channel( );
+    let( tx, rx ) = mpsc::channel( );
     
     // Send a password message to the message buffer
     if !pass.is_empty( ) {
-      tx.send( ConnEvent::Send( format! ( "PASS {}", pass ) ) );
+      match tx.send( ConnEvent::Send( format! ( "PASS {}", pass ) ) ) {
+        Ok ( _ )  => (),
+        Err ( e ) => debug::err( "sending password to server", "" ),
+      }
     }
     
     // Build the server struct

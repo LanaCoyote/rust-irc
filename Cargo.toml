@@ -1,5 +1,13 @@
 [package]
 
-name = "rust-irc"
+name = "rustirc"
 version = "0.0.1"
 authors = ["David Reeve <nerdboy6@gmail.com>"]
+
+[dependencies.regex]
+
+[lib]
+
+name = "rustirc"
+path = "src/lib.rs"
+crate-type = ["dylib"]

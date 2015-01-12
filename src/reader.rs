@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::mpsc;
 use std::time;
 
 use connection;
@@ -12,7 +13,7 @@ use utils::debug;
 /// `chan` - Send half of the channel used to communicate
 pub struct IrcReader {
   tcp   : io::TcpStream,
-  chan  : Sender < connection::ConnEvent >,
+  chan  : mpsc::Sender < connection::ConnEvent >,
 }
 
 impl IrcReader {
@@ -24,7 +25,7 @@ impl IrcReader {
   /// `tx` - Transmission channel used to talk to the program
   pub fn new ( 
     tcp : io::TcpStream,
-    tx : Sender < connection::ConnEvent > 
+    tx : mpsc::Sender < connection::ConnEvent > 
     ) -> IrcReader {
     IrcReader {
       tcp   : tcp,
@@ -39,7 +40,7 @@ impl IrcReader {
   /// - This will block until the connection is closed. Run it in a new thread
   /// so that you can operate on the information you read.
   pub fn start ( &mut self ) {
-    let mut try   = 0u;
+    let mut try   = 0u8;
     let mut time  = 5;
     let mut read  = io::BufferedReader::new( self.tcp.clone( ) );
     // Check that we're connected to a peer
@@ -61,9 +62,15 @@ impl IrcReader {
         Ok ( line ) => {
           let mut pass = line.clone( );
           pass.pop( );
-          self.chan.send( connection::ConnEvent::Recv( pass ) );
-          try  = 0u;
-          time = 5;
+          match self.chan.send( connection::ConnEvent::Recv( pass ) ) {
+            Ok ( _ )  => {
+              try  = 0u8;
+              time = 5;
+            },
+            Err ( e ) => {
+              debug::err( "irc reader send", "" );
+            },
+          };
         },
         
         // An error occurred or the connection was severed
@@ -75,7 +82,7 @@ impl IrcReader {
             },
             _                          => {
               debug::err( "irc reader", e.desc );
-              try += 1u;
+              try += 1u8;
             }
           }
         }

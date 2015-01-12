@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::fmt;
 
 /// `Source` abstracts the source of an IRC message
 ///
@@ -93,7 +92,7 @@ impl Message {
   pub fn parse( msg : &str ) -> Option < Message > {
     let re      = match Regex::new( r"^(:\S+)?\s*(\S+)\s+(.*)\r?$" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e ),
+      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
     };
     let capture = re.captures( msg );
     
@@ -129,10 +128,10 @@ impl Message {
   /// # Returns
   ///
   /// The parameter at the given index or None if that parameter doesn't exist
-  pub fn param( &self, num : uint ) -> Option < &str > {
+  pub fn param( &self, num : usize ) -> Option < &str > {
     let re = match Regex::new( r"(:.*|\S+)" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e ),
+      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
     };
     match re.captures( self.params.as_slice( ) ) {
       Some ( cap )  => cap.at( num ),
@@ -161,13 +160,13 @@ impl Message {
   ///
   /// The trailing parameter or None if the message has no trailing parameter
   pub fn trailing( &self ) -> Option < &str > {
-    let re = match Regex::new( r":.*" ) {
+    let re = match Regex::new( r":(.*)" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e ),
+      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
     };
-    match re.find( self.params.as_slice( ) ) {
-      Some( ( start, end ) )  => Some( self.params.as_slice( )[start+1..end] ),
-      None                    => None,
+    match re.captures( self.params.as_slice( ) ) {
+      Some( cap )  => cap.at( 1 ),
+      None         => None,
     }
   }
 }
