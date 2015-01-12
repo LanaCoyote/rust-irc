@@ -127,10 +127,12 @@ impl Client {
   }
   
   fn start_reader( tcp : io::TcpStream, chan : mpsc::Sender < connection::ConnEvent > ) {
+    debug::oper( "starting irc reader thread..." );
     let rthread = thread::Thread::spawn( move || {
       let mut rdr = reader::IrcReader::new( tcp, chan );
       rdr.start( );
     } );
+    debug::oper( "irc reader started successfully" );
   }
   
   pub fn send_msg( &mut self, m : message::Message ) {
