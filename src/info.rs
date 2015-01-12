@@ -16,3 +16,18 @@ impl Clone for IrcInfo {
     }
   }
 }
+
+impl IrcInfo {
+  pub fn gen( nick : &str, user : &str, real : &str, chans : Vec < &str > ) -> IrcInfo {
+    let mut cvec : Vec < String > = Vec::new();
+    for chan in chans.iter( ) {
+      cvec.push( String::from_str( *chan ) );
+    }
+    IrcInfo {
+      nick_name : String::from_str( nick ),
+      user_name : String::from_str( user ),
+      real_name : String::from_str( real ),
+      channels  : cvec,
+    }
+  }
+}
