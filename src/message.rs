@@ -119,6 +119,33 @@ impl Message {
     }
   }
   
+  /// `nick` gets the nick or channel of the source, if there is one
+  ///
+  /// # Returns
+  ///
+  /// An Option enum with either the nick or channel of the source or None if it
+  /// couldn't find one
+  pub fn nick( &self ) -> Option < String > {
+    match self.source.clone( ) {
+      Source::Sender ( s ) => {
+        let re = match Regex::new( r":(\S+?)!" ) {
+          Ok ( re ) => re,
+          Err ( e ) => panic! ( "error creating regex parser: {}", e.msg ),
+        };
+        match re.captures( s.as_slice() ) {
+          Some ( cap ) => {
+            match cap.at( 1 ) {
+              Some ( res ) => Some( String::from_str( res ) ),
+              None         => None,
+            }
+          },
+          None         => None,
+        }
+      },
+      Source::None         => None,
+    }
+  }
+  
   /// `param` gets the parameter at index `num`
   ///
   /// # Arguments
