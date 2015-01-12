@@ -54,6 +54,7 @@ impl Client {
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
+    debug::info( "handling received message" );
     // parse our raw string into a usable message
     let msg = match message::Message::parse( s.as_slice() ) {
       Some ( m ) => m,
@@ -62,9 +63,13 @@ impl Client {
     
     // perform basic callbacks
     match msg.code.as_slice( ) {
-      "PING"   => { w.write_line( msg.pong( ).raw.as_slice( ) ); },
+      "PING"   => { 
+        debug::info( "responding to ping request from server" );
+        w.write_line( msg.pong( ).raw.as_slice( ) ); 
+      },
       "NOTICE" => {
         if !*registered {
+          debug::info( "registering on server" );
           let nickline = format! ( "NICK {}", i.nick_name );
           let userline = format! ( "USER {} * * :{}", 
             i.user_name, i.real_name );
@@ -75,6 +80,7 @@ impl Client {
         }
       },
       "003"  => { 
+        debug::info( "joining channels" );
         for chan in i.channels.iter() {
           let joinline = format! ( "JOIN {}", chan );
           w.write_line( joinline.as_slice( ) ); 
@@ -98,6 +104,7 @@ impl Client {
     mut chan : mpsc::Sender < message::Message >,
     port : mpsc::Receiver < connection::ConnEvent >
   ) {
+    debug::oper( "starting message handler..." );
     let mut registered = false;
     loop {
       match port.recv( ) {
@@ -116,6 +123,7 @@ impl Client {
         },
       }
     }
+    debug::oper( "closing message handler..." );
   }
   
   fn start_reader( tcp : io::TcpStream, chan : mpsc::Sender < connection::ConnEvent > ) {
@@ -140,6 +148,7 @@ impl Client {
   }
   
   pub fn start_thread ( mut self ) -> mpsc::Receiver < message::Message >  {
+    debug::oper( "starting client thread..." );
     let (tx,rx) = mpsc::channel( );
     self.thread = Some( thread::Thread::spawn( move || {
       Client::start_reader( self.conn.tcp.clone( ), self.conn.chan.clone( ) );
