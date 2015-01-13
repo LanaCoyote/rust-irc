@@ -148,7 +148,7 @@ impl Client {
     }
   }
   
-  pub fn start_thread ( mut self ) -> mpsc::Receiver < message::Message >  {
+  pub fn start_thread ( mut self ) -> ( mpsc::Receiver < message::Message >, Client )  {
     debug::oper( "starting client thread..." );
     let (tx,rx) = mpsc::channel( );
     let params  = ( self.conn.tcp.clone( ), self.conn.chan.clone( ), self.conn.spin_writer( ), self.info.clone( ), self.conn.listen.expect( "no receiver found" ) );
@@ -157,7 +157,7 @@ impl Client {
       Client::start_handler( params.2, params.3, tx.clone( ), params.4 );
     } ) );
     self.conn.listen = None;
-    return rx;
+    ( rx, self )
   }
   
   pub fn stop( &mut self ) {
