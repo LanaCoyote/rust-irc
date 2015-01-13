@@ -101,7 +101,7 @@ impl Client {
     mut w : io::LineBufferedWriter < io::TcpStream >, 
     i : info::IrcInfo,
     mut chan : mpsc::Sender < message::Message >,
-    port : mpsc::Receiver < connection::ConnEvent >
+    port : &mpsc::Receiver < connection::ConnEvent >
   ) {
     debug::oper( "starting message handler..." );
     let mut registered = false;
@@ -153,7 +153,7 @@ impl Client {
     let (tx,rx) = mpsc::channel( );
     self.thread = Some( thread::Thread::spawn( move || {
       Client::start_reader( self.conn.tcp.clone( ), self.conn.chan.clone( ) );
-      Client::start_handler( self.conn.spin_writer( ), self.info.clone( ), tx.clone( ), self.conn.listen );
+      Client::start_handler( self.conn.spin_writer( ), self.info.clone( ), tx.clone( ), &self.conn.listen );
     } ) );
     return rx;
   }
