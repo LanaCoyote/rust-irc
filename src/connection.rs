@@ -34,7 +34,7 @@ pub struct ServerConnection {
   pub tcp   : io::TcpStream,
 
   pub chan  : mpsc::Sender < ConnEvent >,
-  pub listen: mpsc::Receiver < ConnEvent >,
+  pub listen: Option < mpsc::Receiver < ConnEvent > >,
 }
 
 impl ServerConnection {
@@ -82,7 +82,7 @@ impl ServerConnection {
       pass    : pass.to_string( ),
       tcp     : tcp,
       chan    : tx,
-      listen  : rx,
+      listen  : Some( rx ),
     }
   }
 
