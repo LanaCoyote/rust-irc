@@ -198,6 +198,18 @@ impl Message {
   }
 }
 
+impl Clone for Message {
+  fn clone ( &self ) -> Message {
+    Message {
+      dir     : self.dir,
+      source  : self.source.clone( ),
+      code    : self.code.clone( ),
+      params  : self.params.clone( ),
+      raw     : self.raw.clone( ),
+    }
+  }
+}
+
 // impl std::fmt::Show for Message {
   // fn fmt( &self, f : &mut std::fmt::Formatter ) -> std::fmt::Result {
     // write! ( f, "{}", self.raw.as_slice( ) )
