@@ -135,8 +135,8 @@ impl Message {
       dir     : Direction::Outgoing,
       source  : Source::None,
       code    : String::from_str( "PRIVMSG" ),
-      params  : params.to_string( ),
-      raw     : raw_from_data( Source::None, "PRIVMSG", params ),
+      params  : params.clone( ),
+      raw     : raw_from_data( Source::None, "PRIVMSG", params.as_slice( ) ),
     }
   }
   
@@ -147,8 +147,8 @@ impl Message {
   /// - `true` if the message code is PRIVMSG or NOTICE
   /// - `false` otherwise
   pub fn is_message( &self ) -> bool {
-    match self.code {
-      "PRIVMSG", "NOTICE" => true,
+    match self.code.as_slice( ) {
+      "PRIVMSG" | "NOTICE" => true,
       _                   => false,
     }
   }
@@ -233,9 +233,10 @@ impl Message {
   /// - `Some` if the command has a target, containing the target
   /// - `None` if the command doesn't have a target
   pub fn target( &self ) -> Option < &str > {
-    match self.code {
-      "JOIN", "PART", "MODE", "TOPIC", "INVITE", "PRIVMSG", "NOTICE", "WHOIS",
-        "WHOWAS", "KILL", "PING", "PONG", "SUMMON", "ISON" => self.param( 1 ),
+    match self.code.as_slice( ) {
+      "JOIN" | "PART" | "MODE" | "TOPIC" | "INVITE" | "PRIVMSG" | "NOTICE" | 
+        "WHOIS" | "WHOWAS" | "KILL" | "PING" | "PONG" | "SUMMON" | "ISON" => 
+        self.param( 1 ),
       "KICK" => self.param( 2 ),
       _      => None,
     }
