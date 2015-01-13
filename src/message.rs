@@ -119,6 +119,51 @@ impl Message {
     }
   }
   
+  /// `privmsg` generates a PRIVMSG message that goes to the target
+  ///
+  /// # Arguments
+  ///
+  /// `target` - the destination of the message, a nick, host, or channel
+  /// `message` - the message body
+  ///
+  /// # Returns
+  ///
+  /// A message ready to be sent to the target
+  pub fn privmsg( target : &str, message : &str ) -> Message {
+    let params = format! ( "{} :{}", target, message );
+    Message {
+      dir     : Direction::Outgoing,
+      source  : Source::None,
+      code    : String::from_str( "PRIVMSG" ),
+      params  : params.to_string( ),
+      raw     : raw_from_data( Source::None, "PRIVMSG", params ),
+    }
+  }
+  
+  /// `is_message` returns whether a message is a PRIVMSG based message
+  ///
+  /// # Returns
+  ///
+  /// - `true` if the message code is PRIVMSG or NOTICE
+  /// - `false` otherwise
+  pub fn is_message( &self ) -> bool {
+    match self.code {
+      "PRIVMSG", "NOTICE" => true,
+      _                   => false,
+    }
+  }
+  
+  /// `is_public` returns whether a message is a private message
+  ///
+  /// # Returns
+  ///
+  /// - `true` if the destination of the message is a channel
+  /// - `false` otherwise (not a PRIVMSG or target is nick)
+  pub fn is_public( &self ) -> bool {
+    if !self.is_message( ) { return false };
+    self.target( ).expect( "bad message" ).starts_with( "#" )
+  }
+  
   /// `nick` gets the nick or channel of the source, if there is one
   ///
   /// # Returns
@@ -178,6 +223,21 @@ impl Message {
       code    : "PONG".to_string( ),
       params  : self.params.clone( ),
       raw     : raw_from_data( Source::None, "PONG", self.params.as_slice( ) ),
+    }
+  }
+  
+  /// `target` returns the target of a command
+  ///
+  /// # Returns
+  ///
+  /// - `Some` if the command has a target, containing the target
+  /// - `None` if the command doesn't have a target
+  pub fn target( &self ) -> Option < &str > {
+    match self.code {
+      "JOIN", "PART", "MODE", "TOPIC", "INVITE", "PRIVMSG", "NOTICE", "WHOIS",
+        "WHOWAS", "KILL", "PING", "PONG", "SUMMON", "ISON" => self.param( 1 ),
+      "KICK" => self.param( 2 ),
+      _      => None,
     }
   }
   
