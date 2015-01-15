@@ -71,7 +71,7 @@ impl IrcReader {
               try  = 0u8;
               time = 5;
             },
-            Err ( e ) => {
+            Err ( _ ) => {
               debug::err( "irc reader send", "" );
             },
           };
@@ -107,7 +107,7 @@ impl IrcReader {
     debug::oper( "closing irc reader..." );
     match self.chan.send( connection::ConnEvent::Abort( String::from_str( "irc reader closed" ) ) ) {
       Ok ( _ )  => (),
-      Err ( e ) => debug::err( "closing irc reader", "" ),
+      Err ( _ ) => debug::err( "closing irc reader", "" ),
     }
   }
 }

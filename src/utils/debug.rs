@@ -7,24 +7,29 @@ pub enum Level {
   DispOut,
 }
 
+#[allow(dead_code)]
 pub fn err ( s : &str, e : &str ) {
   let data = format! ( "err in {} : {}", s, e );
   log( Level::Err, data );
 }
 
+#[allow(dead_code)]
 pub fn warn ( s : &str, w : &str ) {
   let data = format! ( "warning in {} : {}", s, w );
   log( Level::Warn, data );
 }
 
+#[allow(dead_code)]
 pub fn oper ( s : &str ) {
   log( Level::Oper, s.to_string( ) );
 }
 
+#[allow(dead_code)]
 pub fn info ( s : &str ) {
   log( Level::Info, s.to_string( ) );
 }
 
+#[allow(dead_code)]
 pub fn disp ( s : &str, inc : bool ) {
   match inc {
     true  => log( Level::DispIn, s.to_string( ) ),

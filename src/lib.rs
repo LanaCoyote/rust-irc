@@ -1,11 +1,12 @@
 #![feature(slicing_syntax)]
+#![allow(unstable)]
 extern crate regex;
 
 // identify custom modules
 pub mod client;
-mod connection;
+pub mod connection;
 mod ctcp;
 pub mod info;
 pub mod message;
-mod reader;
+pub mod reader;
 mod utils;

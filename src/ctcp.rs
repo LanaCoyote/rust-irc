@@ -1,11 +1,3 @@
-use std::char;
-
-use message;
-
-static M_QUOTE : char = '\x14';
-static X_DELIM : char = '\x01';
-static X_QUOTE : char = '\\';
-
 static M_CNVRT : [(&'static str,&'static str); 4] = [ ("\x00","\x140"),
                                                       ("\n","\x14n"),
                                                       ("\r","\x14r"),

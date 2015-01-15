@@ -1,5 +1,7 @@
 use regex::Regex;
 
+use utils::debug;
+
 /// `Source` abstracts the source of an IRC message
 ///
 /// # Options
@@ -92,7 +94,10 @@ impl Message {
   pub fn parse( msg : &str ) -> Option < Message > {
     let re      = match Regex::new( r"^(:\S+)?\s*(\S+)\s+(.*)\r?$" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
+      Err( e  ) => {
+        debug::err( "creating message parser", e.msg.as_slice( ) );
+        return None;
+      },
     };
     let capture = re.captures( msg );
     
@@ -175,7 +180,10 @@ impl Message {
       Source::Sender ( s ) => {
         let re = match Regex::new( r":(\S+?)!" ) {
           Ok ( re ) => re,
-          Err ( e ) => panic! ( "error creating regex parser: {}", e.msg ),
+          Err ( e ) => {
+            debug::err( "creating nick parser", e.msg.as_slice( ) );
+            return None;
+          },
         };
         match re.captures( s.as_slice() ) {
           Some ( cap ) => {
@@ -203,7 +211,10 @@ impl Message {
   pub fn param( &self, num : usize ) -> Option < &str > {
     let re = match Regex::new( r"(:.*|\S+)" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
+      Err( e  ) => {
+        debug::err( "creating msg parameter parser", e.msg.as_slice( ) );
+        return None;
+      },
     };
     match re.captures( self.params.as_slice( ) ) {
       Some ( cap )  => cap.at( num ),
@@ -250,7 +261,10 @@ impl Message {
   pub fn trailing( &self ) -> Option < &str > {
     let re = match Regex::new( r":(.*)" ) {
       Ok ( re ) => re,
-      Err( e  ) => panic! ( "error creating regex parser: {}", e.msg ),
+      Err( e  ) => {
+        debug::err( "creating msg trailing parser", e.msg.as_slice( ) );
+        return None;
+      },
     };
     match re.captures( self.params.as_slice( ) ) {
       Some( cap )  => cap.at( 1 ),

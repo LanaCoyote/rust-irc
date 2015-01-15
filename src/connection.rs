@@ -71,7 +71,7 @@ impl ServerConnection {
     if !pass.is_empty( ) {
       match tx.send( ConnEvent::Send( format! ( "PASS {}", pass ) ) ) {
         Ok ( _ )  => (),
-        Err ( e ) => debug::err( "sending password to server", "" ),
+        Err ( _ ) => debug::err( "sending password to server", "" ),
       }
     }
     
