@@ -11,7 +11,7 @@ Library for managing IRC connections in rustlang. Last updated 1/15/2015.
 ## Example
 
 ```rust
-let info      = rustirc::info::IrcInfo( "MyIrcTest", "MyIrcTest", "Testing rust-irc", vec!["#rust"] );
+let info      = rustirc::info::IrcInfo::gen( "MyIrcTest", "MyIrcTest", "Testing rust-irc", vec!["#rust"] );
 let preclient = rustirc::client::Client::connect( "irc.mozilla.org", 6667, "", info );
 let (rx,cnt)  = preclient.start_thread( );
 
