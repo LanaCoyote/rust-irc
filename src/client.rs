@@ -5,6 +5,7 @@ use std::thread;
 
 // import custom modules
 use connection;
+use ctcp;
 use info;
 use message;
 use reader;
@@ -55,7 +56,8 @@ impl Client {
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
     // parse our raw string into a usable message
-    let msg = match message::Message::parse( s.as_slice() ) {
+    let msg = match message::Message::parse( 
+      ctcp::ctcp_dequote( ctcp::low_level_dequote( s.clone( ) ) ).as_slice( ) ) {
       Some ( m ) => m,
       None       => panic! ( "BAD" ),
     };
@@ -93,7 +95,7 @@ impl Client {
   }
   
   fn handle_send( s : String, w : &mut io::LineBufferedWriter < io::TcpStream > ) {
-    w.write_line( s.as_slice() ); 
+    w.write_line( ctcp::low_level_quote( ctcp::ctcp_quote( s.clone( ) ) ).as_slice( ) ); 
     debug::disp( s.as_slice( ), false );
   }
   
