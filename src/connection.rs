@@ -108,14 +108,6 @@ impl ServerConnection {
     debug::oper( "server connection closed successfully" );
   }
   
-  /// `spin_reader` spins up a new IrcReader in a separate thread
-  // pub fn spin_reader ( &self ) {
-    // let rthread = thread::Thread::spawn( move || {
-      // let mut rdr = reader::IrcReader::new(self.tcp.clone(), self.chan.clone());
-      // rdr.start( );
-    // } );
-  // }
-  
   /// `spin_writer` spins up a new IrcWriter and returns a handle to it
   pub fn spin_writer( &self ) -> io::LineBufferedWriter < io::TcpStream > {
     io::LineBufferedWriter::new( self.tcp.clone() )

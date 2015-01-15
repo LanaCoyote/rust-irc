@@ -111,24 +111,3 @@ impl IrcReader {
     }
   }
 }
-
-// fn main() {
-  // let mut tcp = match io::TcpStream::connect( "irc.freenode.net:6665" ) {
-    // Ok ( res ) => res,
-    // Err ( e )  => panic! ( "{}", e ),
-  // };
-  // println! ( "Connected to irc.freenode.net" );
-  // let ( chan, port ) = channel();
-  // let rthread = thread::Thread::spawn( move || {
-    // let mut rdr = IrcReader::new( tcp, chan );
-    // rdr.start();
-  // } );
-  // loop {
-    // match port.recv( ) {
-      // connection::ConnEvent::Recv ( data ) => {
-        // debug::disp( data.as_slice(), true );
-      // },
-      // _                                    => (),
-    // }
-  // }
-// }

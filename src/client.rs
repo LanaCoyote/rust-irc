@@ -44,7 +44,6 @@ impl Client {
   }
   
   fn close( &mut self ) {
-    self.writer.write_line( "QUIT" );
     self.conn.close( );
   }
   
@@ -115,6 +114,7 @@ impl Client {
           connection::ConnEvent::Abort( s ) => {
             let stopline = format! ( "client handler aborted: {}", s );
             debug::oper( stopline.as_slice( ) );
+            w.write_line( "QUIT" );
             break;
           },
         },
@@ -165,24 +165,8 @@ impl Client {
   pub fn stop( &mut self ) {
     match self.conn.chan.send( connection::ConnEvent::Abort( 
       String::from_str( "stop called from client" ) ) ) {
-      Ok ( _ )  => (),
+      Ok ( _ )  => self.close( ),
       Err ( e ) => debug::err( "stopping client", "" ),
     }
   }
 }
-
-// fn main() {
-  // let inf = info::IrcInfo {
-    // nick_name : "ReturnOfBot".to_string( ),
-    // user_name : "ReturnOfBot".to_string( ),
-    // real_name : "I'm back, baby".to_string( ),
-    // channels : vec! [ "#thefuture".to_string( ) ],
-  // };
-  // let clnt = Client::connect( "91.217.189.76", 6667, "", inf );
-  
-  // let rx = clnt.start_thread( );
-  
-  // for msg in rx.iter( ) {
-    // debug::disp( msg.raw.as_slice( ), true );
-  // }
-// }
