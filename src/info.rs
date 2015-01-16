@@ -156,6 +156,7 @@ impl IrcInfo {
 
 impl Drop for IrcInfo {
   fn drop ( &mut self ) {
+    println! ( "info dropped here" );
     for (_,list) in self.names.iter_mut( ) {
       list.clear( );
     }
