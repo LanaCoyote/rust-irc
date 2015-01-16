@@ -1,6 +1,5 @@
 // import built in modules
 use std::io;
-use std::sync;
 use std::sync::mpsc;
 use std::thread;
 
@@ -91,7 +90,7 @@ impl Client {
   /// * `registered` - reference to the boolean that determines if we're regged
   fn callback_notice( 
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : Box < info::IrcInfo >,
+    i : &Box < info::IrcInfo >,
     registered : &mut bool
   ) {
     if !*registered {
@@ -124,7 +123,7 @@ impl Client {
   /// * `i` - reference to the client info
   fn callback_welcome(
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : Box < info::IrcInfo >
+    i : &Box < info::IrcInfo >
   ) {
     debug::info( "joining channels..." );
     for chan in i.channels.iter() {
@@ -137,12 +136,12 @@ impl Client {
     }
   }
   
-  fn callback_names( mut i : Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_names( i : &mut Box < info::IrcInfo >, msg : message::Message ) {
     debug::info( "getting name list..." );
     i.prep_channel_names( msg );
   }
   
-  fn callback_end_of_names( mut i : Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_end_of_names( i : &mut Box < info::IrcInfo >, msg : message::Message ) {
     debug::info( "got name list ok!" );
     i.set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
   }
@@ -159,7 +158,7 @@ impl Client {
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
-    mut i : Box < info::IrcInfo >,               // irc client info
+    i : &mut Box < info::IrcInfo >,               // irc client info
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
@@ -219,7 +218,7 @@ impl Client {
   /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
-    mut i : Box < info::IrcInfo >, // client info
+    i : Box < info::IrcInfo >, // client info
     mut chan : mpsc::Sender < message::Message >,     // channel to send received messages over
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
@@ -230,7 +229,7 @@ impl Client {
       match port.recv( ) {
         Ok ( t )  => match t {
           connection::ConnEvent::Send( s ) => Client::handle_send( s, &mut w ),
-          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, realinfo.clone( ), &mut registered, &mut chan ),
+          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &mut realinfo, &mut registered, &mut chan ),
           connection::ConnEvent::Abort( s ) => {
             let stopline = format! ( "client handler aborted: {}", s );
             debug::oper( stopline.as_slice( ) );
