@@ -7,10 +7,11 @@ Library for managing IRC connections in rustlang. Last updated 1/15/2015.
  - Automatically manages pings and server registration
  - CTCP support
  - Structured message handling
+ - Tracks channel users automatically
 
 ## To-do
 
- - Channel user lists (hard to sync between threads)
+ - More string slices, less string buffers
  - Numeric code constants
  - And more
 
