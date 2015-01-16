@@ -8,6 +8,12 @@ Library for managing IRC connections in rustlang. Last updated 1/15/2015.
  - CTCP support
  - Structured message handling
 
+## To-do
+
+ - Channel user lists (hard to sync between threads)
+ - Numeric code constants
+ - And more
+
 ## Example
 
 ```rust
