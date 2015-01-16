@@ -50,13 +50,15 @@ impl Client {
     let conn : connection::ServerConnection = 
       connection::ServerConnection::connect( host, port, pass );
     let wrt = conn.spin_writer( );
-    Client {
+    let mut cnt = Client {
       info        : sync::Arc::new( sync::atomic::AtomicPtr::new ( &mut info ) ),
       conn        : conn,
       writer      : wrt,
       thread      : None,
       realinfo    : info,
-    }
+    };
+    cnt.info.store( &mut cnt.realinfo, sync::atomic::Ordering::Relaxed );
+    cnt
   }
   
   /// `close` shuts down the IRC client and frees up memory.
