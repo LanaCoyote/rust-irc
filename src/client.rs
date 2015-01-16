@@ -21,15 +21,15 @@ use utils::debug;
 /// * `conn` - ServerConnection struct that maintains the client's connection
 /// to the server.
 /// * `writer` - Buffered writer that controls writing to the TcpStream
-pub struct Client {
-  pub info    : sync::Arc < sync::atomic::AtomicPtr < Box < info::IrcInfo > > >,
+pub struct Client <'cl> {
+  pub info    : sync::Arc < sync::atomic::AtomicPtr < Box < &'cl mut info::IrcInfo > > >,
   pub conn    : connection::ServerConnection,
   pub writer  : io::LineBufferedWriter < io::TcpStream >,
   
   thread      : Option < thread::Thread >,
 }
 
-impl Client {
+impl <'cl> Client <'cl> {
   /// `connect` connects to an IRC server with the given info.
   ///
   /// # Arguments
@@ -39,12 +39,12 @@ impl Client {
   /// * `pass` - password of the server. Use a blank string if the server has
   /// no password
   /// * `info` - IrcInfo struct that contains the info to use on the client
-  pub fn connect ( 
+  pub fn connect <'a> ( 
     host : &str, 
     port : u16, 
     pass : &str, 
-    mut info : Box < info::IrcInfo >
-  ) -> Client
+    mut info : Box < &'a mut info::IrcInfo >
+  ) -> Client <'a>
   {
     let conn : connection::ServerConnection = 
       connection::ServerConnection::connect( host, port, pass );
@@ -91,7 +91,7 @@ impl Client {
   /// * `registered` - reference to the boolean that determines if we're regged
   fn callback_notice( 
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : *const Box < info::IrcInfo >,
+    i : *const Box < &mut info::IrcInfo >,
     registered : &mut bool
   ) {
     if !*registered {
@@ -126,7 +126,7 @@ impl Client {
   /// * `i` - reference to the client info
   fn callback_welcome(
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : *const Box < info::IrcInfo >
+    i : *const Box < &mut info::IrcInfo >
   ) {
     debug::info( "joining channels..." );
     unsafe {
@@ -141,14 +141,14 @@ impl Client {
     }
   }
   
-  fn callback_names( i : *mut Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_names( i : *mut Box < &mut info::IrcInfo >, msg : message::Message ) {
     debug::info( "getting name list..." );
     unsafe {
       (*i).prep_channel_names( msg );
     }
   }
   
-  fn callback_end_of_names( i : *mut Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_end_of_names( i : *mut Box < &mut info::IrcInfo >, msg : message::Message ) {
     debug::info( "got name list ok!" );
     unsafe {
       (*i).set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
@@ -167,7 +167,7 @@ impl Client {
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
-    i : *mut Box < info::IrcInfo >,                            // irc client info
+    i : *mut Box < &mut info::IrcInfo >,               // irc client info
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
@@ -229,7 +229,7 @@ impl Client {
   /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
-    mut i : sync::Arc < sync::atomic::AtomicPtr < Box < info::IrcInfo > > >, // client info
+    mut i : sync::Arc < sync::atomic::AtomicPtr < Box < &mut info::IrcInfo > > >, // client info
     mut chan : mpsc::Sender < message::Message >,     // channel to send received messages over
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
@@ -307,7 +307,7 @@ impl Client {
   /// A tuple containing:
   /// * Receiver the client will send parsed IRC messages to
   /// * A "cooked" version of the client
-  pub fn start_thread( mut self ) -> ( mpsc::Receiver < message::Message >, Client )  {
+  pub fn start_thread ( mut self ) -> ( mpsc::Receiver < message::Message >, Client <'cl> )  {
     match self.thread {
       Some ( _ )  => {
         debug::err( "starting client thread", "client thread already started" );
