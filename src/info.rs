@@ -53,7 +53,9 @@ impl IrcInfo {
       // add channels on JOIN message
       "JOIN" => {
         if msg.nick( ).unwrap_or( String::from_str( "" ) ) == self.nick_name {
-          self.channels.push( msg.param( 1 ).unwrap( ).to_string( ) );
+          if !in_vec( &self.channels, msg.param( 1 ).unwrap( ).to_string( ) ) {
+            self.channels.push( msg.param( 1 ).unwrap( ).to_string( ) );
+          }
         } else {
           self.add_to_channel( msg.param( 1 ).unwrap( ).to_string( ), msg.nick( ).unwrap_or( String::from_str( "" ) ) );
         }
@@ -162,4 +164,14 @@ impl Drop for IrcInfo {
     self.names.clear( );
     self.channels.clear( );
   }
+}
+
+fn in_vec < T > ( v : &Vec < T >, el : T ) -> bool
+  where T: PartialEq {
+  for item in v.iter( ) {
+    if *item == el {
+      return true;
+    }
+  }
+  return false;
 }

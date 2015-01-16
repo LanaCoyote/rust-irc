@@ -176,6 +176,7 @@ impl Client {
     };
     
     // update client info if necessary
+    // this is in an unsafe block because i have no idea how to open locks
     unsafe {
       (*i.lock( ).unwrap( )).update_info( msg.clone( ) );
     }
