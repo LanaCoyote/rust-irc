@@ -115,7 +115,7 @@ impl Client {
     }
   }
   
-  /// `callback_welcome` is called whenever a welcome code (003) is received
+  /// `callback_welcome` is called whenever a welcome code (001) is received
   ///
   /// # Arguments
   ///
@@ -136,6 +136,14 @@ impl Client {
     }
   }
   
+  fn callback_names( i : &mut info::IrcInfo, msg : message::Message ) {
+    i.prep_channel_names( msg );
+  }
+  
+  fn callback_end_of_names( i : &mut info::IrcInfo, msg : message::Message ) {
+    i.set_channel_names( msg.param( 1 ).unwrap( ).to_string( ) );
+  }
+  
   /// `handle_recv` is called whenever a Recv ConnEvent is read
   ///
   /// # Arguments
@@ -148,7 +156,7 @@ impl Client {
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
-    i : &info::IrcInfo,                                // irc client info
+    i : &mut info::IrcInfo,                            // irc client info
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
@@ -163,11 +171,16 @@ impl Client {
       },
     };
     
+    // update client info if necessary
+    i.update_info( msg.clone( ) );
+    
     // perform basic callbacks
     match msg.code.as_slice( ) {
       "PING"    => Client::callback_ping( w, msg.clone( ) ),
       "NOTICE"  => Client::callback_notice( w, i, registered ),
-      "003"     => Client::callback_welcome( w, i ),
+      "001"     => Client::callback_welcome( w, i ),
+      "355"     => Client::callback_names( i, msg.clone( ) ),
+      "366"     => Client::callback_end_of_names( i, msg.clone( ) ),
       _         => (),
     };
     
@@ -208,12 +221,13 @@ impl Client {
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
     debug::oper( "starting message handler..." );
-    let mut registered = false;
+    let mut registered  = false;
+    let mut realinfo    = i.clone( );
     loop {
       match port.recv( ) {
         Ok ( t )  => match t {
           connection::ConnEvent::Send( s ) => Client::handle_send( s, &mut w ),
-          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &i, &mut registered, &mut chan ),
+          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &mut realinfo, &mut registered, &mut chan ),
           connection::ConnEvent::Abort( s ) => {
             let stopline = format! ( "client handler aborted: {}", s );
             debug::oper( stopline.as_slice( ) );
