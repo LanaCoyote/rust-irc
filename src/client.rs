@@ -1,5 +1,6 @@
 // import built in modules
 use std::io;
+use std::sync;
 use std::sync::mpsc;
 use std::thread;
 
@@ -21,7 +22,7 @@ use utils::debug;
 /// to the server.
 /// * `writer` - Buffered writer that controls writing to the TcpStream
 pub struct Client {
-  pub info    : info::IrcInfo,
+  pub info    : sync::Arc < info::IrcInfo >,
   pub conn    : connection::ServerConnection,
   pub writer  : io::LineBufferedWriter < io::TcpStream >,
   
@@ -49,7 +50,7 @@ impl Client {
       connection::ServerConnection::connect( host, port, pass );
     let wrt = conn.spin_writer( );
     Client {
-      info        : info,
+      info        : sync::Arc::new( info ),
       conn        : conn,
       writer      : wrt,
       thread      : None,
@@ -137,10 +138,12 @@ impl Client {
   }
   
   fn callback_names( i : &mut info::IrcInfo, msg : message::Message ) {
+    debug::info( "getting name list..." );
     i.prep_channel_names( msg );
   }
   
   fn callback_end_of_names( i : &mut info::IrcInfo, msg : message::Message ) {
+    debug::info( "got name list ok!" );
     i.set_channel_names( msg.param( 1 ).unwrap( ).to_string( ) );
   }
   
@@ -216,18 +219,18 @@ impl Client {
   /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
-    i : info::IrcInfo,                                // client info
+    mut i : sync::Arc < info::IrcInfo >,                                // client info
     mut chan : mpsc::Sender < message::Message >,     // channel to send received messages over
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
     debug::oper( "starting message handler..." );
     let mut registered  = false;
-    let mut realinfo    = i.clone( );
+    let mut realinfo    = i.make_unique( );
     loop {
       match port.recv( ) {
         Ok ( t )  => match t {
           connection::ConnEvent::Send( s ) => Client::handle_send( s, &mut w ),
-          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &mut realinfo, &mut registered, &mut chan ),
+          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, realinfo, &mut registered, &mut chan ),
           connection::ConnEvent::Abort( s ) => {
             let stopline = format! ( "client handler aborted: {}", s );
             debug::oper( stopline.as_slice( ) );
