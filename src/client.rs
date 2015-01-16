@@ -27,6 +27,7 @@ pub struct Client {
   pub writer  : io::LineBufferedWriter < io::TcpStream >,
   
   thread      : Option < thread::Thread >,
+  realinfo    : info::IrcInfo,
 }
 
 impl Client {
@@ -54,6 +55,7 @@ impl Client {
       conn        : conn,
       writer      : wrt,
       thread      : None,
+      realinfo    : info,
     }
   }
   
@@ -307,7 +309,7 @@ impl Client {
   /// A tuple containing:
   /// * Receiver the client will send parsed IRC messages to
   /// * A "cooked" version of the client
-  pub fn start_thread ( mut self ) -> ( mpsc::Receiver < message::Message >, Client )  {
+  pub fn start_thread( mut self ) -> ( mpsc::Receiver < message::Message >, Client )  {
     match self.thread {
       Some ( _ )  => {
         debug::err( "starting client thread", "client thread already started" );
