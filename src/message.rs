@@ -178,7 +178,7 @@ impl Message {
   pub fn nick( &self ) -> Option < String > {
     match self.source.clone( ) {
       Source::Sender ( s ) => {
-        let re = match Regex::new( r":(\S+?)!" ) {
+        let re = match Regex::new( r":([\w]+?)" ) {
           Ok ( re ) => re,
           Err ( e ) => {
             debug::err( "creating nick parser", e.msg.as_slice( ) );
@@ -253,7 +253,7 @@ impl Message {
         "WHOIS" | "WHOWAS" | "KILL" | "PING" | "PONG" | "SUMMON" | "ISON" => 
         self.param( 1 ),
       "KICK" => self.param( 2 ),
-      _      => None,
+      _      => self.param( 1 ),
     }
   }
   
@@ -311,5 +311,102 @@ fn raw_from_data( source : Source, code : &str, params : &str ) -> String {
       format! ( ":{} {} {}", snd, code, params ).to_string( )
     },
     Source::None          => format! ( "{} {}", code, params ).to_string( ),
+  }
+}
+
+// ** TEST MODULE ************************************************************
+mod test {
+  #[test]
+  fn test_newmessage () {
+    let mymessage = super::Message::new( 
+      super::Source::Sender( String::from_str( "Lancey" ) ),
+      "PRIVMSG",
+      "Detective :Hello!"
+    );
+    assert! ( mymessage.raw     == ":Lancey PRIVMSG Detective :Hello!" );
+  }
+  
+  #[test]
+  fn test_parsemessage () {
+    let mymessage = super::Message::parse( ":Lancey PRIVMSG Detective :Hello!" ).unwrap( );
+    assert! ( mymessage.code    == "PRIVMSG" );
+    assert! ( mymessage.param( 1 ).unwrap( ) == "Detective" );
+    assert! ( mymessage.params  == "Detective :Hello!" );
+  }
+  
+  #[test]
+  fn test_privmessage () {
+    let mymessage = super::Message::privmsg( "Detective", "Hello!" );
+    assert! ( mymessage.code    == "PRIVMSG" );
+    assert! ( mymessage.param( 1 ).unwrap( ) == "Detective" );
+    assert! ( mymessage.params  == "Detective :Hello!" );
+    assert! ( mymessage.raw     == "PRIVMSG Detective :Hello!" );
+  }
+  
+  #[test]
+  fn test_ismessage () {
+    let privmessage = super::Message::privmsg( "Detective", "Hello!" );
+    let joinmessage = super::Message::new(
+      super::Source::Sender( String::from_str( "Lancey" ) ),
+      "JOIN",
+      "#rust"
+    );
+    let nickmessage = super::Message::parse( ":Lancey NICK func_door" ).unwrap( );
+    
+    assert! ( privmessage.is_message( ) );
+    assert! ( !joinmessage.is_message( ) );
+    assert! ( !nickmessage.is_message( ) );
+  }
+  
+  #[test]
+  fn test_ispublic () {
+    let pubmessage = super::Message::privmsg( "#rust", "Hello, everyone!" );
+    let privmessage = super::Message::privmsg( "Detective", "Goodbye" );
+    
+    assert! ( pubmessage.is_public( ) );
+    assert! ( !privmessage.is_public( ) );
+  }
+  
+  #[test]
+  fn test_nick () {
+    let nonickmessage = super::Message::privmsg( "Detective", "Hello!" );
+    let nickmessage = super::Message::parse( ":Detective JOIN #rust" ).unwrap( );
+    
+    assert! ( nickmessage.nick( ).is_some( ) );
+    assert! ( nonickmessage.nick( ).is_none( ) );
+  }
+  
+  #[test]
+  fn test_param () {
+    let mymessage = super::Message::parse( "PRIVMSG param1 param2 param3 :param4 param5" ).unwrap( );
+    assert! ( mymessage.param( 1 ).unwrap( ) == "param1" );
+    assert! ( mymessage.param( 2 ).unwrap( ) == "param2" );
+    assert! ( mymessage.param( 3 ).unwrap( ) == "param3" );
+    assert! ( mymessage.param( 4 ).unwrap( ) == ":param4 param5" );
+    assert! ( mymessage.param( 5 ).is_none( ) );
+  }
+  
+  #[test]
+  fn test_pong () {
+    let mymessage = super::Message::parse( "PING tolsun.oulu.fi" ).unwrap( );
+    let pongmessage = mymessage.pong( );
+    assert! ( pongmessage.code == "PONG" );
+    assert! ( pongmessage.param( 1 ).unwrap( ) == "tolsun.oulu.fi" );
+  }
+  
+  #[test]
+  fn test_trailing () {
+    let mymessage = super::Message::parse( "PRIVMSG param1 param2 param3 :param4 param5" ).unwrap( );
+    let failmessage = super::Message::parse( "JOIN #rust" ).unwrap( );
+    assert! ( mymessage.trailing( ).unwrap( ) == "param4 param5" );
+    assert! ( failmessage.trailing( ).is_none( ) );
+  }
+  
+  #[test]
+  fn test_clone () {
+    let mymessage = super::Message::privmsg( "Detective", "Hello!" );
+    let clonemessage = mymessage.clone( );
+    assert! ( mymessage.code == clonemessage.code );
+    assert! ( mymessage.raw == clonemessage.raw );
   }
 }
