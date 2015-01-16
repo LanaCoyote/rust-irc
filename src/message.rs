@@ -216,10 +216,14 @@ impl Message {
         return None;
       },
     };
-    match re.captures( self.params.as_slice( ) ) {
-      Some ( cap )  => cap.at( num ),
-      None          => None,
+    let mut i = 1;
+    for cap in re.captures_iter( self.params.as_slice( ) ) {
+      if i == num {
+        return cap.at( 1 )
+      }
+      i += 1;
     }
+    return None;
   }
   
   /// `pong` automatically reverses an incoming PING message
