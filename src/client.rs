@@ -1,6 +1,6 @@
 // import built in modules
 use std::io;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 
 // import custom modules
@@ -21,7 +21,7 @@ use utils::debug;
 /// to the server.
 /// * `writer` - Buffered writer that controls writing to the TcpStream
 pub struct Client {
-  pub info    : Box < info::IrcInfo >,
+  pub info    : Arc < Mutex < Box < info::IrcInfo > > >,
   pub conn    : connection::ServerConnection,
   pub writer  : io::LineBufferedWriter < io::TcpStream >,
   
@@ -49,7 +49,7 @@ impl Client {
       connection::ServerConnection::connect( host, port, pass );
     let wrt = conn.spin_writer( );
     Client {
-      info        : info,
+      info        : Arc::new( Mutex::new( info ) ),
       conn        : conn,
       writer      : wrt,
       thread      : None,
@@ -90,15 +90,17 @@ impl Client {
   /// * `registered` - reference to the boolean that determines if we're regged
   fn callback_notice( 
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : &Box < info::IrcInfo >,
+    i : &Arc < Mutex < Box < info::IrcInfo > > >,
     registered : &mut bool
   ) {
     if !*registered {
+      let info = i.lock( ).unwrap( );
+      
       // assemble our messages to the server
       debug::info( "registering on server..." );
-      let nickline = format! ( "NICK {}", i.nick_name );
+      let nickline = format! ( "NICK {}", info.nick_name );
       let userline = format! ( "USER {} * * :{}", 
-        i.user_name, i.real_name );
+        info.user_name, info.real_name );
       
       // send them (order is important)
       match w.write_line( nickline.as_slice() ) {
@@ -123,10 +125,10 @@ impl Client {
   /// * `i` - reference to the client info
   fn callback_welcome(
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : &Box < info::IrcInfo >
+    i : &Arc < Mutex < Box < info::IrcInfo > > >
   ) {
     debug::info( "joining channels..." );
-    for chan in i.channels.iter() {
+    for chan in i.lock( ).unwrap( ).channels.iter() {
       let joinline  = format! ( "JOIN {}", chan );
       let debugline = format! ( "joining channel {}", chan );
       match w.write_line( joinline.as_slice( ) ) {
@@ -136,14 +138,14 @@ impl Client {
     }
   }
   
-  fn callback_names( i : &mut Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_names( i : &mut Arc < Mutex < Box < info::IrcInfo > > >, msg : message::Message ) {
     debug::info( "getting name list..." );
-    i.prep_channel_names( msg );
+    i.lock( ).unwrap( ).prep_channel_names( msg );
   }
   
-  fn callback_end_of_names( i : &mut Box < info::IrcInfo >, msg : message::Message ) {
+  fn callback_end_of_names( i : &mut Arc < Mutex < Box < info::IrcInfo > > >, msg : message::Message ) {
     debug::info( "got name list ok!" );
-    i.set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
+    i.lock( ).unwrap( ).set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
   }
   
   /// `handle_recv` is called whenever a Recv ConnEvent is read
@@ -158,7 +160,7 @@ impl Client {
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
-    i : &mut Box < info::IrcInfo >,               // irc client info
+    i : &mut Arc < Mutex < Box < info::IrcInfo > > >,  // irc client info
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
@@ -174,7 +176,9 @@ impl Client {
     };
     
     // update client info if necessary
-    i.update_info( msg.clone( ) );
+    unsafe {
+      (*i.lock( ).unwrap( )).update_info( msg.clone( ) );
+    }
     
     // perform basic callbacks
     match msg.code.as_slice( ) {
@@ -218,18 +222,17 @@ impl Client {
   /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
-    i : Box < info::IrcInfo >, // client info
+    mut i : Arc < Mutex < Box < info::IrcInfo > > >,      // client info
     mut chan : mpsc::Sender < message::Message >,     // channel to send received messages over
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
     debug::oper( "starting message handler..." );
     let mut registered  = false;
-    let mut realinfo    = i;
     loop {
       match port.recv( ) {
         Ok ( t )  => match t {
           connection::ConnEvent::Send( s ) => Client::handle_send( s, &mut w ),
-          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &mut realinfo, &mut registered, &mut chan ),
+          connection::ConnEvent::Recv( s ) => Client::handle_recv( s, &mut w, &mut i, &mut registered, &mut chan ),
           connection::ConnEvent::Abort( s ) => {
             let stopline = format! ( "client handler aborted: {}", s );
             debug::oper( stopline.as_slice( ) );
