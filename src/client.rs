@@ -22,12 +22,11 @@ use utils::debug;
 /// to the server.
 /// * `writer` - Buffered writer that controls writing to the TcpStream
 pub struct Client {
-  pub info    : sync::Arc < sync::atomic::AtomicPtr < info::IrcInfo > >,
+  pub info    : sync::Arc < sync::atomic::AtomicPtr < Box < info::IrcInfo > > >,
   pub conn    : connection::ServerConnection,
   pub writer  : io::LineBufferedWriter < io::TcpStream >,
   
   thread      : Option < thread::Thread >,
-  realinfo    : info::IrcInfo,
 }
 
 impl Client {
@@ -44,21 +43,18 @@ impl Client {
     host : &str, 
     port : u16, 
     pass : &str, 
-    mut info : info::IrcInfo
+    mut info : Box < info::IrcInfo >
   ) -> Client
   {
     let conn : connection::ServerConnection = 
       connection::ServerConnection::connect( host, port, pass );
     let wrt = conn.spin_writer( );
-    let mut cnt = Client {
+    Client {
       info        : sync::Arc::new( sync::atomic::AtomicPtr::new ( &mut info ) ),
       conn        : conn,
       writer      : wrt,
       thread      : None,
-      realinfo    : info,
-    };
-    cnt.info.store( &mut cnt.realinfo, sync::atomic::Ordering::Relaxed );
-    cnt
+    }
   }
   
   /// `close` shuts down the IRC client and frees up memory.
@@ -95,7 +91,7 @@ impl Client {
   /// * `registered` - reference to the boolean that determines if we're regged
   fn callback_notice( 
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : *const info::IrcInfo,
+    i : *const Box < info::IrcInfo >,
     registered : &mut bool
   ) {
     if !*registered {
@@ -130,7 +126,7 @@ impl Client {
   /// * `i` - reference to the client info
   fn callback_welcome(
     w : &mut io::LineBufferedWriter < io::TcpStream >,
-    i : *const info::IrcInfo
+    i : *const Box < info::IrcInfo >
   ) {
     debug::info( "joining channels..." );
     unsafe {
@@ -145,14 +141,14 @@ impl Client {
     }
   }
   
-  fn callback_names( i : *mut info::IrcInfo, msg : message::Message ) {
+  fn callback_names( i : *mut Box < info::IrcInfo >, msg : message::Message ) {
     debug::info( "getting name list..." );
     unsafe {
       (*i).prep_channel_names( msg );
     }
   }
   
-  fn callback_end_of_names( i : *mut info::IrcInfo, msg : message::Message ) {
+  fn callback_end_of_names( i : *mut Box < info::IrcInfo >, msg : message::Message ) {
     debug::info( "got name list ok!" );
     unsafe {
       (*i).set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
@@ -171,7 +167,7 @@ impl Client {
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
-    i : *mut info::IrcInfo,                            // irc client info
+    i : *mut Box < info::IrcInfo >,                            // irc client info
     registered : &mut bool,                            // are we registered?
     chan : &mut mpsc::Sender < message::Message >      // channel to send msg on
   ) {
@@ -233,7 +229,7 @@ impl Client {
   /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
-    mut i : sync::Arc < sync::atomic::AtomicPtr < info::IrcInfo > >, // client info
+    mut i : sync::Arc < sync::atomic::AtomicPtr < Box < info::IrcInfo > > >, // client info
     mut chan : mpsc::Sender < message::Message >,     // channel to send received messages over
     port : mpsc::Receiver < connection::ConnEvent >   // port to receive data on
   ) {
