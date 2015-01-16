@@ -56,10 +56,95 @@ impl Client {
     }
   }
   
+  /// `close` shuts down the IRC client and frees up memory.
   fn close( &mut self ) {
     self.conn.close( );
   }
   
+  /// `callback_ping` is called whenever a ping message is received from the
+  /// server.
+  ///
+  /// # Arguments
+  ///
+  /// * `w` - mutable reference to the TcpStream writer
+  /// * `msg` - original ping message
+  fn callback_ping( 
+    w : &mut io::LineBufferedWriter < io::TcpStream >,
+    msg : message::Message
+  ) {
+    debug::info( "responding to ping request from server..." );
+    
+    // invert the message and send it back to the server
+    match w.write_line( msg.pong( ).raw.as_slice( ) ) {
+      Ok ( _ )  => (),
+      Err ( e ) => debug::err( "ping response", e.desc ),
+    };
+  }
+  
+  /// `callback_notice` is called whenever a notice message is received
+  ///
+  /// # Arguments
+  ///
+  /// * `w` - mutable reference to the TcpStream writer
+  /// * `i` - reference to the client info
+  /// * `registered` - reference to the boolean that determines if we're regged
+  fn callback_notice( 
+    w : &mut io::LineBufferedWriter < io::TcpStream >,
+    i : &info::IrcInfo,
+    registered : &mut bool
+  ) {
+    if !*registered {
+      // assemble our messages to the server
+      debug::info( "registering on server..." );
+      let nickline = format! ( "NICK {}", i.nick_name );
+      let userline = format! ( "USER {} * * :{}", 
+        i.user_name, i.real_name );
+        
+      // send them (order is important)
+      match w.write_line( nickline.as_slice() ) {
+        Ok ( _ )  => debug::info( "registering nick on server" ),
+        Err ( e ) => debug::err( "nick registration", e.desc ),
+      };
+      match w.write_line( userline.as_slice() ) {
+        Ok ( _ )  => debug::info( "registering username on server" ),
+        Err ( e ) => debug::err( "username registration", e.desc ),
+      };
+      
+      // mark ourselves as registered
+      *registered = true;
+    }
+  }
+  
+  /// `callback_welcome` is called whenever a welcome code (003) is received
+  ///
+  /// # Arguments
+  ///
+  /// * `w` - mutable reference to the TcpStream writer
+  /// * `i` - reference to the client info
+  fn callback_welcome(
+    w : &mut io::LineBufferedWriter < io::TcpStream >,
+    i : &info::IrcInfo
+  ) {
+    debug::info( "joining channels..." );
+    for chan in i.channels.iter() {
+      let joinline  = format! ( "JOIN {}", chan );
+      let debugline = format! ( "joining channel {}", chan );
+      match w.write_line( joinline.as_slice( ) ) {
+        Ok ( _ )  => debug::info( debugline.as_slice( ) ),
+        Err ( e ) => debug::err( debugline.as_slice( ), e.desc ),
+      };
+    }
+  }
+  
+  /// `handle_recv` is called whenever a Recv ConnEvent is read
+  ///
+  /// # Arguments
+  ///
+  /// * `s` - String contents of the ConnEvent, the message received
+  /// * `w` - mutable reference to the TcpStream writer
+  /// * `i` - reference to the client info
+  /// * `registered` - ref to boolean that determines if we're regged on the server
+  /// * `chan` - channel to send back our final message on
   fn handle_recv( 
     s : String,                                        // raw message received
     w : &mut io::LineBufferedWriter < io::TcpStream >, // writer to output to
@@ -73,50 +158,17 @@ impl Client {
       Some ( m ) => m,
       None       => {
         debug::err( "parsing IRC message", "message is not an IRC message" );
-        debug::info( s.clone( ).as_slice( ) );
+        debug::info( s.as_slice( ) );
         return;
       },
     };
     
     // perform basic callbacks
     match msg.code.as_slice( ) {
-      "PING"   => { 
-        debug::info( "responding to ping request from server..." );
-        match w.write_line( msg.pong( ).raw.as_slice( ) ) {
-          Ok ( _ )  => (),
-          Err ( e ) => debug::err( "ping response", e.desc ),
-        };
-      },
-      "NOTICE" => {
-        if !*registered {
-          debug::info( "registering on server..." );
-          let nickline = format! ( "NICK {}", i.nick_name );
-          let userline = format! ( "USER {} * * :{}", 
-            i.user_name, i.real_name );
-            
-          match w.write_line( nickline.as_slice() ) {
-            Ok ( _ )  => debug::info( "registering nick on server" ),
-            Err ( e ) => debug::err( "nick registration", e.desc ),
-          };
-          match w.write_line( userline.as_slice() ) {
-            Ok ( _ )  => debug::info( "registering username on server" ),
-            Err ( e ) => debug::err( "username registration", e.desc ),
-          };
-          *registered = true;
-        }
-      },
-      "003"  => { 
-        debug::info( "joining channels..." );
-        for chan in i.channels.iter() {
-          let joinline  = format! ( "JOIN {}", chan );
-          let debugline = format! ( "joining channel {}", chan );
-          match w.write_line( joinline.as_slice( ) ) {
-            Ok ( _ )  => debug::info( debugline.as_slice( ) ),
-            Err ( e ) => debug::err( debugline.as_slice( ), e.desc ),
-          };
-        }
-      },
-      _      => ()
+      "PING"    => Client::callback_ping( w, msg.clone( ) ),
+      "NOTICE"  => Client::callback_notice( w, i, registered ),
+      "003"     => Client::callback_welcome( w, i ),
+      _         => (),
     };
     
     // send the message back along our channel
@@ -126,6 +178,12 @@ impl Client {
     }
   }
   
+  /// `handle_send` is called whenever a Send ConnEvent is read
+  ///
+  /// # Arguments
+  ///
+  /// * `s` - String contents of the ConnEvent, the message to send
+  /// * `w` - mutable reference to the TcpStream writer
   fn handle_send( s : String, w : &mut io::LineBufferedWriter < io::TcpStream > ) {
     match w.write_line( ctcp::low_level_quote( 
       ctcp::ctcp_quote( s.clone( ) ) ).as_slice( ) ) {
@@ -135,6 +193,14 @@ impl Client {
     debug::disp( s.as_slice( ), false );
   }
   
+  /// `start_handler` runs the message handling interface
+  ///
+  /// # Arguments
+  ///
+  /// * `w` - mutable reference to the TcpStream writer
+  /// * `i` - reference to client info
+  /// * `chan` - channel to send back completed messages on
+  /// * `port` - port to receive incoming events on
   fn start_handler( 
     mut w : io::LineBufferedWriter < io::TcpStream >, // writer to send messages to
     i : info::IrcInfo,                                // client info
@@ -167,6 +233,12 @@ impl Client {
     debug::oper( "closing message handler..." );
   }
   
+  /// `start_reader` spins up a new reader thread and starts it
+  ///
+  /// # Arguments
+  ///
+  /// `tcp` - the TcpStream to read from
+  /// `chan` - the channel to send back messages on
   fn start_reader( tcp : io::TcpStream, chan : mpsc::Sender < connection::ConnEvent > ) {
     debug::oper( "starting irc reader thread..." );
     let rthread = thread::Thread::spawn( move || {
@@ -199,21 +271,36 @@ impl Client {
       Err ( _ ) => debug::err( "sending raw message to client", "" ),
     }
   }
-  
+
   /// `start_thread` spins up a reader and message handler on a new thread and
   /// manages IRC communication asynchronously.
+  ///
+  /// # Returns
+  ///
+  /// A tuple containing:
+  /// * Receiver the client will send parsed IRC messages to
+  /// * A "cooked" version of the client
   pub fn start_thread ( mut self ) -> ( mpsc::Receiver < message::Message >, Client )  {
-    debug::oper( "starting client thread..." );
-    let (tx,rx) = mpsc::channel( );
-    let params  = ( self.conn.tcp.clone( ), self.conn.chan.clone( ), 
-      self.conn.spin_writer( ), self.info.clone( ), 
-      self.conn.listen.expect( "no receiver found" ) );
-    self.thread = Some( thread::Thread::spawn( move || {
-      Client::start_reader( params.0, params.1 );
-      Client::start_handler( params.2, params.3, tx.clone( ), params.4 );
-    } ) );
-    self.conn.listen = None;
-    ( rx, self )
+    match self.thread {
+      Some ( _ )  => {
+        debug::err( "starting client thread", "client thread already started" );
+        let (_,fakerx) = mpsc::channel( );
+        ( fakerx, self )
+      },
+      None        => {
+        debug::oper( "starting client thread..." );
+        let (tx,rx) = mpsc::channel( );
+        let params  = ( self.conn.tcp.clone( ), self.conn.chan.clone( ), 
+          self.conn.spin_writer( ), self.info.clone( ), 
+          self.conn.listen.expect( "no receiver found" ) );
+        self.thread = Some( thread::Thread::spawn( move || {
+          Client::start_reader( params.0, params.1 );
+          Client::start_handler( params.2, params.3, tx.clone( ), params.4 );
+        } ) );
+        self.conn.listen = None;
+        ( rx, self )
+      },
+    }
   }
   
   /// `stop` ends the client thread.
@@ -223,5 +310,113 @@ impl Client {
       Ok ( _ )  => self.close( ),
       Err ( _ ) => debug::err( "stopping client", "" ),
     }
+  }
+  
+  // Abstraction methods
+  
+  /// `send_ctcp` sends a CTCP tagged message to the target
+  ///
+  /// # Arguments
+  ///
+  /// * `target` - target client of the message
+  /// * `message` - ctcp message to send, command and parameters
+  pub fn send_ctcp( &mut self, target : &str, message : &str ) {
+    self.message( target, ctcp::tag( message ).as_slice( ) );
+  }
+  
+  /// `send_ctcp_reply` sends a response to a CTCP message
+  ///
+  /// # Arguments
+  ///
+  /// * `target` - target client of the message
+  /// * `message` - ctcp message to send, command and parameters
+  ///
+  /// # Notes
+  ///
+  /// * Unlike `send_ctcp`, `send_ctcp_reply` is sent as a NOTICE, as specified
+  /// in the CTCP documentation.
+  pub fn send_ctcp_reply( &mut self, target : &str, message : &str ) {
+    self.notice( target, ctcp::tag( message ).as_slice( ) );
+  }
+  
+  /// `identify` identifies with the NickServ service
+  ///
+  /// # Arguments
+  ///
+  /// * `password` - NickServ password to identify with
+  pub fn identify( &mut self, password : &str ) {
+    let sendline = format! ( "IDENTIFY {}", password );
+    self.message( "NickServ", sendline.as_slice( ) );
+  }
+  
+  /// `message` sends a private message to the target
+  ///
+  /// # Arguments
+  ///
+  /// * `target` - target of the message
+  /// * `message` - body of the message
+  pub fn message( &mut self, target : &str, message : &str ) {
+    let sendline = format! ( "PRIVMSG {} :{}", target, message );
+    self.send_str( sendline.as_slice( ) );
+  }
+  
+  /// `notice` sends a notice message to the target
+  ///
+  /// # Arguments
+  ///
+  /// * `target` - target of the message
+  /// * `message` - body of the message
+  ///
+  /// # Notes
+  ///
+  /// * NOTICE is different from PRIVMSG because a NOTICE never expects a reply
+  pub fn notice( &mut self, target : &str, message : &str ) {
+    let sendline = format! ( "NOTICE {} :{}", target, message );
+    self.send_str( sendline.as_slice( ) );
+  }
+  
+  /// `action` sends a CTCP action message to the target
+  ///
+  /// # Arguments
+  ///
+  /// * `target` - target of the message
+  /// * `message` - the action message
+  ///
+  /// # Notes
+  ///
+  /// * This is equivalent to doing "/me does an action" in a typical IRC client
+  pub fn action( &mut self, target : &str, message : &str ) {
+    let sendline = format! ( "ACTION {}", message );
+    self.send_ctcp( target, sendline.as_slice( ) );
+  }
+  
+  /// `join` joins a new channel
+  ///
+  /// # Arguments
+  ///
+  /// * `channel` - channel to join
+  pub fn join( &mut self, channel : &str ) {
+    let sendline = format! ( "JOIN {}", channel );
+    self.send_str( sendline.as_slice( ) );
+  }
+  
+  /// `part` leaves a channel you're in
+  ///
+  /// # Arguments
+  ///
+  /// * `channel` - channel to part from
+  pub fn part( &mut self, channel : &str ) {
+    let sendline = format! ( "PART {}", channel );
+    self.send_str( sendline.as_slice( ) );
+  }
+  
+  /// `nick` changes nickname on the server
+  ///
+  /// # Arguments
+  ///
+  /// * `nick` - nickname to change to
+  pub fn nick( &mut self, nick : &str ) {
+    let sendline = format! ( "NICK {}", nick );
+    self.send_str( sendline.as_slice( ) );
   }
 }
