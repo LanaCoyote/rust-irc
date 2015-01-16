@@ -144,7 +144,7 @@ impl Client {
   
   fn callback_end_of_names( i : &mut info::IrcInfo, msg : message::Message ) {
     debug::info( "got name list ok!" );
-    i.set_channel_names( msg.param( 1 ).unwrap( ).to_string( ) );
+    i.set_channel_names( msg.param( 2 ).unwrap( ).to_string( ) );
   }
   
   /// `handle_recv` is called whenever a Recv ConnEvent is read
@@ -182,7 +182,7 @@ impl Client {
       "PING"    => Client::callback_ping( w, msg.clone( ) ),
       "NOTICE"  => Client::callback_notice( w, i, registered ),
       "001"     => Client::callback_welcome( w, i ),
-      "355"     => Client::callback_names( i, msg.clone( ) ),
+      "353"     => Client::callback_names( i, msg.clone( ) ),
       "366"     => Client::callback_end_of_names( i, msg.clone( ) ),
       _         => (),
     };
