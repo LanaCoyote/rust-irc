@@ -88,7 +88,7 @@ impl IrcInfo {
   
   pub fn prep_channel_names( &mut self, msg : message::Message ) {
     let mut name_list = match msg.trailing( ) {
-      Some( trail ) => trail.as_slice( ).split_str( " " ),
+      Some( trail ) => trail.as_slice( ).trim_right( ).split_str( " " ),
       None          => return,
     };
     for name in name_list {
