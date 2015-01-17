@@ -135,7 +135,7 @@ impl IrcInfo {
   }
 
   fn add_to_channel( &mut self, chan : String, nick : String ) {
-    let debugline = format! ( "adding {} to {}'s name list", chan, nick );
+    let debugline = format! ( "adding {} to {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
       Some( list )  => list.push( nick ),
@@ -144,7 +144,7 @@ impl IrcInfo {
   }
 
   fn remove_from_channel( &mut self, chan : String, nick : String ) {
-    let debugline = format! ( "removing {} from {}'s name list", chan, nick );
+    let debugline = format! ( "removing {} from {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     let chan_list = match self.names.get_mut( &chan ) {
       Some( list )  => list,
