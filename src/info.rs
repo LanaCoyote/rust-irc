@@ -7,7 +7,7 @@ pub struct IrcInfo {
   pub nick_name : String,
   pub user_name : String,
   pub real_name : String,
-  
+
   pub channels  : Vec < String >,
   names         : collections::HashMap < String, Vec < String > >,
   prep_names    : Vec < String >,
@@ -41,11 +41,11 @@ impl IrcInfo {
       prep_names: Vec::new( ),
     }
   }
-  
+
   pub fn update_info( &mut self, msg : message::Message ) {
     match msg.code.as_slice( ) {
       // update nickname on NICK message
-      "NICK" => { 
+      "NICK" => {
         if msg.nick( ).unwrap_or( String::from_str( "" ) ) == self.nick_name {
           self.nick_name = msg.param( 1 ).unwrap( ).to_string( );
         }
@@ -87,7 +87,7 @@ impl IrcInfo {
       _   => (),
     }
   }
-  
+
   pub fn prep_channel_names( &mut self, msg : message::Message ) {
     let mut name_list = match msg.trailing( ) {
       Some( trail ) => trail.as_slice( ).trim_right( ).split_str( " " ),
@@ -97,31 +97,33 @@ impl IrcInfo {
       self.prep_names.push( String::from_str( name ) );
     }
   }
-  
+
   pub fn set_channel_names( &mut self, chan : String ) {
     // drop the name list if it already exists in our map
     if self.names.contains_key( &chan ) {
       self.drop_channel_names( chan.clone( ) );
     }
-    
+
     // insert the name list into out map and get a pointer to it
     self.names.insert( chan.clone( ), Vec::new( ) );
     let chan_list = self.names.get_mut( &chan ).unwrap( );
-    
+
     // populate the vector
     for name in self.prep_names.iter( ) {
       chan_list.push( name.clone( ) );
     }
-    
+
     // clear our prep list
     self.prep_names.clear( );
   }
-  
+
   pub fn get_channel_names( &self, chan : String ) -> Option< &Vec < String > > {
     self.names.get( &chan )
   }
-  
+
   fn drop_channel_names( &mut self, chan : String ) {
+    let debugline = format! ( "dropping {} from name lists", chan );
+    debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
       Some( list )  => list.clear( ),
       None          => {
@@ -131,15 +133,19 @@ impl IrcInfo {
     }
     self.names.remove( &chan );
   }
-  
+
   fn add_to_channel( &mut self, chan : String, nick : String ) {
+    let debugline = format! ( "adding {} to {}'s name list", chan, nick );
+    debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
       Some( list )  => list.push( nick ),
       None          => debug::warn( "add nick to name list", "name list does not exist" ),
     }
   }
-  
+
   fn remove_from_channel( &mut self, chan : String, nick : String ) {
+    let debugline = format! ( "removing {} from {}'s name list", chan, nick );
+    debug::info( debugline.as_slice( ) );
     let chan_list = match self.names.get_mut( &chan ) {
       Some( list )  => list,
       None          => {
