@@ -36,7 +36,7 @@ pub enum Direction {
 impl Copy for Direction {}
 
 /// `Message` refers to an IRC message
-/// 
+///
 /// # Members
 ///
 /// `dir` - the direction of the message flow
@@ -100,7 +100,7 @@ impl Message {
       },
     };
     let capture = re.captures( msg );
-    
+
     match capture {
       Some ( cap )  => {
         Some( Message {
@@ -123,7 +123,7 @@ impl Message {
       None          => None,
     }
   }
-  
+
   /// `privmsg` generates a PRIVMSG message that goes to the target
   ///
   /// # Arguments
@@ -144,7 +144,7 @@ impl Message {
       raw     : raw_from_data( Source::None, "PRIVMSG", params.as_slice( ) ),
     }
   }
-  
+
   /// `is_message` returns whether a message is a PRIVMSG based message
   ///
   /// # Returns
@@ -157,7 +157,7 @@ impl Message {
       _                   => false,
     }
   }
-  
+
   /// `is_public` returns whether a message is a private message
   ///
   /// # Returns
@@ -168,7 +168,7 @@ impl Message {
     if !self.is_message( ) { return false };
     self.target( ).expect( "bad message" ).starts_with( "#" )
   }
-  
+
   /// `nick` gets the nick or channel of the source, if there is one
   ///
   /// # Returns
@@ -178,7 +178,7 @@ impl Message {
   pub fn nick( &self ) -> Option < String > {
     match self.source.clone( ) {
       Source::Sender ( s ) => {
-        let re = match Regex::new( r":([\w]+?)" ) {
+        let re = match Regex::new( r":([\w]+)" ) {
           Ok ( re ) => re,
           Err ( e ) => {
             debug::err( "creating nick parser", e.msg.as_slice( ) );
@@ -198,7 +198,7 @@ impl Message {
       Source::None         => None,
     }
   }
-  
+
   /// `param` gets the parameter at index `num`
   ///
   /// # Arguments
@@ -225,7 +225,7 @@ impl Message {
     }
     return None;
   }
-  
+
   /// `pong` automatically reverses an incoming PING message
   ///
   /// # Returns
@@ -240,7 +240,7 @@ impl Message {
       raw     : raw_from_data( Source::None, "PONG", self.params.as_slice( ) ),
     }
   }
-  
+
   /// `target` returns the target of a command
   ///
   /// # Returns
@@ -249,14 +249,14 @@ impl Message {
   /// - `None` if the command doesn't have a target
   pub fn target( &self ) -> Option < &str > {
     match self.code.as_slice( ) {
-      "JOIN" | "PART" | "MODE" | "TOPIC" | "INVITE" | "PRIVMSG" | "NOTICE" | 
-        "WHOIS" | "WHOWAS" | "KILL" | "PING" | "PONG" | "SUMMON" | "ISON" => 
+      "JOIN" | "PART" | "MODE" | "TOPIC" | "INVITE" | "PRIVMSG" | "NOTICE" |
+        "WHOIS" | "WHOWAS" | "KILL" | "PING" | "PONG" | "SUMMON" | "ISON" =>
         self.param( 1 ),
       "KICK" => self.param( 2 ),
       _      => self.param( 1 ),
     }
   }
-  
+
   /// `trailing` gets the trailing parameter of a message (the last one)
   ///
   /// # Returns
@@ -318,14 +318,14 @@ fn raw_from_data( source : Source, code : &str, params : &str ) -> String {
 mod test {
   #[test]
   fn test_newmessage () {
-    let mymessage = super::Message::new( 
+    let mymessage = super::Message::new(
       super::Source::Sender( String::from_str( "Lancey" ) ),
       "PRIVMSG",
       "Detective :Hello!"
     );
     assert! ( mymessage.raw     == ":Lancey PRIVMSG Detective :Hello!" );
   }
-  
+
   #[test]
   fn test_parsemessage () {
     let mymessage = super::Message::parse( ":Lancey PRIVMSG Detective :Hello!" ).unwrap( );
@@ -333,7 +333,7 @@ mod test {
     assert! ( mymessage.param( 1 ).unwrap( ) == "Detective" );
     assert! ( mymessage.params  == "Detective :Hello!" );
   }
-  
+
   #[test]
   fn test_privmessage () {
     let mymessage = super::Message::privmsg( "Detective", "Hello!" );
@@ -342,7 +342,7 @@ mod test {
     assert! ( mymessage.params  == "Detective :Hello!" );
     assert! ( mymessage.raw     == "PRIVMSG Detective :Hello!" );
   }
-  
+
   #[test]
   fn test_ismessage () {
     let privmessage = super::Message::privmsg( "Detective", "Hello!" );
@@ -352,30 +352,30 @@ mod test {
       "#rust"
     );
     let nickmessage = super::Message::parse( ":Lancey NICK func_door" ).unwrap( );
-    
+
     assert! ( privmessage.is_message( ) );
     assert! ( !joinmessage.is_message( ) );
     assert! ( !nickmessage.is_message( ) );
   }
-  
+
   #[test]
   fn test_ispublic () {
     let pubmessage = super::Message::privmsg( "#rust", "Hello, everyone!" );
     let privmessage = super::Message::privmsg( "Detective", "Goodbye" );
-    
+
     assert! ( pubmessage.is_public( ) );
     assert! ( !privmessage.is_public( ) );
   }
-  
+
   #[test]
   fn test_nick () {
     let nonickmessage = super::Message::privmsg( "Detective", "Hello!" );
     let nickmessage = super::Message::parse( ":Detective JOIN #rust" ).unwrap( );
-    
+
     assert! ( nickmessage.nick( ).is_some( ) );
     assert! ( nonickmessage.nick( ).is_none( ) );
   }
-  
+
   #[test]
   fn test_param () {
     let mymessage = super::Message::parse( "PRIVMSG param1 param2 param3 :param4 param5" ).unwrap( );
@@ -385,7 +385,7 @@ mod test {
     assert! ( mymessage.param( 4 ).unwrap( ) == ":param4 param5" );
     assert! ( mymessage.param( 5 ).is_none( ) );
   }
-  
+
   #[test]
   fn test_pong () {
     let mymessage = super::Message::parse( "PING tolsun.oulu.fi" ).unwrap( );
@@ -393,7 +393,7 @@ mod test {
     assert! ( pongmessage.code == "PONG" );
     assert! ( pongmessage.param( 1 ).unwrap( ) == "tolsun.oulu.fi" );
   }
-  
+
   #[test]
   fn test_trailing () {
     let mymessage = super::Message::parse( "PRIVMSG param1 param2 param3 :param4 param5" ).unwrap( );
@@ -401,7 +401,7 @@ mod test {
     assert! ( mymessage.trailing( ).unwrap( ) == "param4 param5" );
     assert! ( failmessage.trailing( ).is_none( ) );
   }
-  
+
   #[test]
   fn test_clone () {
     let mymessage = super::Message::privmsg( "Detective", "Hello!" );
