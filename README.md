@@ -1,5 +1,5 @@
 # rust-irc
-Library for managing IRC connections in rustlang. Last updated 1/15/2015.
+Library for managing IRC connections in rustlang. Last updated 1/19/2015.
 
 ## Features
 

@@ -268,6 +268,15 @@ impl Client {
     debug::oper( "irc reader started successfully" );
   }
   
+  /// `get_info` returns a clone of the client's info.
+  ///
+  /// # Returns
+  ///
+  /// A clone of the client's IrcInfo struct
+  pub fn get_info( &self ) -> info::IrcInfo {
+    (**self.info.lock( ).unwrap( )).clone( )
+  }
+  
   /// `send_msg` sends a Message struct to the IRC server.
   ///
   /// # Arguments
