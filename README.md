@@ -11,6 +11,7 @@ Library for managing IRC connections in rustlang. Last updated 1/19/2015.
 
 ## To-do
 
+ - Better CTCP support (has_tag, get_tag, etc..)
  - More string slices, less string buffers
  - Numeric code constants
  - And more
