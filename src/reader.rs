@@ -86,6 +86,10 @@ impl IrcReader {
             },
             _                          => {
               debug::err( "irc reader", e.desc );
+              match e.detail {
+                Some( det ) => debug::err( "irc reader", det.as_slice( ) ),
+                None        => (),
+              };
               try += 1u8;
             }
           }
