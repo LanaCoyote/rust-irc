@@ -1,4 +1,5 @@
 use std::collections;
+use std::str;
 
 use message;
 use utils::debug;
@@ -98,8 +99,8 @@ impl IrcInfo {
     }
   }
 
-  pub fn set_channel_names( &mut self, chan : String ) {
-    chan = strip_colon( chan );
+  pub fn set_channel_names( &mut self, ch : String ) {
+    let chan = strip_colon( &ch );
     // drop the name list if it already exists in our map
     if self.names.contains_key( &chan ) {
       self.drop_channel_names( chan.clone( ) );
@@ -122,8 +123,8 @@ impl IrcInfo {
     self.names.get( &chan )
   }
 
-  fn drop_channel_names( &mut self, chan : String ) {
-    chan = strip_colon( chan );
+  fn drop_channel_names( &mut self, ch : String ) {
+    let chan = strip_colon( &ch );
     let debugline = format! ( "dropping {} from name lists", chan );
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
@@ -136,9 +137,9 @@ impl IrcInfo {
     self.names.remove( &chan );
   }
 
-  fn add_to_channel( &mut self, chan : String, nick : String ) {
-    chan = strip_colon( chan );
-    nick = strip_colon( nick );
+  fn add_to_channel( &mut self, ch : String, ni : String ) {
+    let chan = strip_colon( &ch );
+    let nick = strip_colon( &ni );
     let debugline = format! ( "adding {} to {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
@@ -147,9 +148,9 @@ impl IrcInfo {
     }
   }
 
-  fn remove_from_channel( &mut self, chan : String, nick : String ) {
-    chan = strip_colon( chan );
-    nick = strip_colon( nick );
+  fn remove_from_channel( &mut self, ch : String, ni : String ) {
+    let chan = strip_colon( &ch );
+    let nick = strip_colon( &ni );
     let debugline = format! ( "removing {} from {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     let chan_list = match self.names.get_mut( &chan ) {
@@ -188,10 +189,10 @@ fn in_vec < T > ( v : &Vec < T >, el : T ) -> bool
   return false;
 }
 
-fn strip_colon <'a> ( s : &'a Str ) -> Str {
+fn strip_colon ( s : &str::Str ) -> String {
   if s.as_slice( ).starts_with( ":" ) {
     s.as_slice( ).slice_from( 1 ).to_string( )
   } else {
-    s
+    s.as_slice( ).to_string( )
   }
 }
