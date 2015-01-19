@@ -195,9 +195,10 @@ fn in_vec < T > ( v : &Vec < T >, el : T ) -> bool
 }
 
 fn strip_colon ( s : &str::Str ) -> String {
-  if s.as_slice( ).starts_with( ":" ) {
-    s.as_slice( ).slice_from( 1 ).to_string( )
+  let ss = s.as_slice( ).trim( );
+  if ss.starts_with( ":" ) {
+    ss.slice_from( 1 ).to_string( )
   } else {
-    s.as_slice( ).to_string( )
+    ss.to_string( )
   }
 }
