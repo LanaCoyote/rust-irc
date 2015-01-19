@@ -1,9 +1,19 @@
+// use modules
 use std::collections;
 use std::str;
 
 use message;
 use utils::debug;
 
+/// `IrcInfo` contains general client information, including the current channel
+/// list
+///
+/// # Members
+///
+/// * `nick_name` - client nick on the server
+/// * `user_name` - username of the client
+/// * `real_name` - realname of the client
+/// * `channels` - list of channels the client is currently in
 pub struct IrcInfo {
   pub nick_name : String,
   pub user_name : String,
@@ -28,6 +38,18 @@ impl Clone for IrcInfo {
 }
 
 impl IrcInfo {
+  /// `gen` generates an IrcInfo struct and returns it
+  ///
+  /// # Arguments
+  ///
+  /// `nick` - nickname to set on client
+  /// `user` - username to set on client
+  /// `real` - realname to set on client
+  /// `chans` - vector of channel names to join on connect
+  ///
+  /// # Returns
+  ///
+  /// A new IrcInfo struct
   pub fn gen( nick : &str, user : &str, real : &str, chans : Vec < &str > ) -> IrcInfo {
     let mut cvec : Vec < String > = Vec::new();
     for chan in chans.iter( ) {
@@ -43,6 +65,12 @@ impl IrcInfo {
     }
   }
 
+  /// `update_info` is called whenever an event on the server affects us to see
+  /// if anything in the client info has changed.
+  ///
+  /// # Arguments
+  ///
+  /// * `msg` - the raw message received from the server
   pub fn update_info( &mut self, msg : message::Message ) {
     match msg.code.as_slice( ) {
       // update nickname on NICK message
@@ -54,7 +82,7 @@ impl IrcInfo {
       // add channels on JOIN message
       "JOIN" => {
         if msg.nick( ).unwrap_or( String::from_str( "" ) ) == self.nick_name {
-          if !in_vec( &self.channels, msg.param( 1 ).unwrap( ).to_string( ) ) {
+          if in_vec( &self.channels, msg.param( 1 ).unwrap( ).to_string( ) ).is_none( ) {
             self.channels.push( msg.param( 1 ).unwrap( ).to_string( ) );
           }
         } else {
@@ -64,12 +92,12 @@ impl IrcInfo {
       // remove channels on PART message
       "PART" => {
         if msg.nick( ).unwrap_or( String::from_str( "" ) ) == self.nick_name {
-          for i in range( 0, self.channels.len( ) ) {
-            if self.channels[i] == msg.param( 1 ).unwrap( ) {
+          match in_vec( &self.channels, msg.param( 1 ).unwrap( ).to_string( ) ) {
+            Some( i ) => {
               self.drop_channel_names( msg.param( 1 ).unwrap( ).to_string( ) );
               self.channels.remove( i );
-              break;
-            }
+            },
+            None      => (),
           }
         } else {
           self.remove_from_channel( msg.param( 1 ).unwrap( ).to_string( ), msg.nick( ).unwrap_or( String::from_str( "" ) ) );
@@ -77,18 +105,24 @@ impl IrcInfo {
       },
       // remove channels on channel errors
       "403" | "405" | "437" | "471" | "473" | "474" | "475" | "476" => {
-        for i in range( 0, self.channels.len( ) ) {
-          if self.channels[i] == msg.param( 1 ).unwrap( ) {
+        match in_vec( &self.channels, msg.param( 1 ).unwrap( ).to_string( ) ) {
+          Some( i ) => {
             self.drop_channel_names( msg.param( 1 ).unwrap( ).to_string( ) );
             self.channels.remove( i );
-            break;
-          }
+          },
+          None      => (),
         }
       },
       _   => (),
     }
   }
 
+  /// `prep_channel_names` parses a NAMES reply from the server and prepares to
+  /// add it to a channel name list.
+  ///
+  /// # Arguments
+  ///
+  /// * `msg` - the raw message received from the server
   pub fn prep_channel_names( &mut self, msg : message::Message ) {
     let mut name_list = match msg.trailing( ) {
       Some( trail ) => trail.as_slice( ).trim_right( ).split_str( " " ),
@@ -99,6 +133,12 @@ impl IrcInfo {
     }
   }
 
+  /// `set_channel_names` sets a channel's name list to the prepared names
+  /// vector.
+  ///
+  /// # Arguments
+  ///
+  /// * `ch` - channel to set the name list on
   pub fn set_channel_names( &mut self, ch : String ) {
     let chan = strip_colon( &ch );
     // drop the name list if it already exists in our map
@@ -119,14 +159,33 @@ impl IrcInfo {
     self.prep_names.clear( );
   }
 
+  /// `get_channel_names` returns the name list of a particular channel.
+  ///
+  /// # Arguments
+  ///
+  /// * `chan` - channel to get the name list for
+  ///
+  /// # Returns
+  ///
+  /// A String vector that contains the names of everyone on the given channel
   pub fn get_channel_names( &self, chan : String ) -> Option< &Vec < String > > {
     self.names.get( &chan )
   }
 
+  /// `drop_channel_names` drops a channel's name list.
+  ///
+  /// # Arguments
+  ///
+  /// * `ch` - channel to drop the name list of
   fn drop_channel_names( &mut self, ch : String ) {
+    // format our arguments
     let chan = strip_colon( &ch );
+    
+    // give a short debug message
     let debugline = format! ( "dropping {} from name lists", chan );
     debug::info( debugline.as_slice( ) );
+    
+    // get and clear the channel name list
     match self.names.get_mut( &chan ) {
       Some( list )  => list.clear( ),
       None          => {
@@ -135,14 +194,27 @@ impl IrcInfo {
         return;
       },
     }
+    
+    // remove the name list from our name map
     self.names.remove( &chan );
   }
 
+  /// `add_to_channel` adds a nick to a channel's name list.
+  ///
+  /// # Arguments
+  ///
+  /// * `ch` - channel to add the name to
+  /// * `ni` - nick to add to the channel name list
   fn add_to_channel( &mut self, ch : String, ni : String ) {
+    // format our arguments
     let chan = strip_colon( &ch );
     let nick = strip_colon( &ni );
+    
+    // print a debug message
     let debugline = format! ( "adding {} to {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
+    
+    // get the channel name list and add the nick
     match self.names.get_mut( &chan ) {
       Some( list )  => list.push( nick ),
       None          => {
@@ -152,11 +224,22 @@ impl IrcInfo {
     }
   }
 
+  /// `remove_from_channel` removes a nick from a channel name list.
+  ///
+  /// # Arguments
+  ///
+  /// * `ch` - channel to remove the name from
+  /// * `ni` - nick to remove from the channel name list
   fn remove_from_channel( &mut self, ch : String, ni : String ) {
+    // format our arguments
     let chan = strip_colon( &ch );
     let nick = strip_colon( &ni );
+    
+    // print a debug message
     let debugline = format! ( "removing {} from {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
+    
+    // get the channel name list
     let chan_list = match self.names.get_mut( &chan ) {
       Some( list )  => list,
       None          => {
@@ -165,11 +248,11 @@ impl IrcInfo {
         return;
       },
     };
-    for i in range( 0, chan_list.len( ) ) {
-      if chan_list[i] == nick {
-        chan_list.remove( i );
-        break;
-      }
+    
+    // loop through and remove the nick from the name list
+    match in_vec( chan_list, nick ) {
+      Some( i ) => { chan_list.remove( i ); },
+      None      => (),
     }
   }
 }
@@ -184,16 +267,40 @@ impl Drop for IrcInfo {
   }
 }
 
-fn in_vec < T > ( v : &Vec < T >, el : T ) -> bool
+/// `in_vec` checks if an element is in a vector
+///
+/// # Arguments
+///
+/// * `v` - vector to look in
+/// * `el` - element to look for
+///
+/// # Returns
+///
+/// The index of el if el is in v, otherwise None
+fn in_vec < T > ( v : &Vec < T >, el : T ) -> Option < usize >
   where T: PartialEq {
-  for item in v.iter( ) {
-    if *item == el {
-      return true;
+  for i in range( 0, v.len( ) ) {
+    if v[i] == el {
+      return Some( i );
     }
   }
-  return false;
+  return None;
 }
 
+/// `strip_colon` removes whitespace and colons from a string
+///
+/// # Arguments
+///
+/// * `s` - string to format
+///
+/// # Returns
+///
+/// A String with leading and trailing whitespaces and colons removed
+///
+/// # Notes
+///
+/// * This function is no longer necessary because message should strip most
+/// whitespace
 fn strip_colon ( s : &str::Str ) -> String {
   let ss = s.as_slice( ).trim( );
   if ss.starts_with( ":" ) {
