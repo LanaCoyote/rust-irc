@@ -130,7 +130,8 @@ impl IrcInfo {
     match self.names.get_mut( &chan ) {
       Some( list )  => list.clear( ),
       None          => {
-        debug::warn( "drop name list", "name list does not exist" );
+        let eline = format! ( "name list '{}' does not exist", chan );
+        debug::warn( "drop name list", eline.as_slice( ) );
         return;
       },
     }
@@ -144,7 +145,10 @@ impl IrcInfo {
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
       Some( list )  => list.push( nick ),
-      None          => debug::warn( "add nick to name list", "name list does not exist" ),
+      None          => {
+        let eline = format! ( "name list '{}' does not exist", chan );
+        debug::warn( "add nick to name list", eline.as_slice( ) );
+      },
     }
   }
 
@@ -156,7 +160,8 @@ impl IrcInfo {
     let chan_list = match self.names.get_mut( &chan ) {
       Some( list )  => list,
       None          => {
-        debug::warn( "remove nick from name list", "name list does not exist" );
+        let eline = format! ( "name list '{}' does not exist", chan );
+        debug::warn( "remove nick from name list", eline.as_slice( ) );
         return;
       },
     };
