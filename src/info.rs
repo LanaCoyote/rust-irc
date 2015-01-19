@@ -99,6 +99,7 @@ impl IrcInfo {
   }
 
   pub fn set_channel_names( &mut self, chan : String ) {
+    chan = strip_colon( chan );
     // drop the name list if it already exists in our map
     if self.names.contains_key( &chan ) {
       self.drop_channel_names( chan.clone( ) );
@@ -122,6 +123,7 @@ impl IrcInfo {
   }
 
   fn drop_channel_names( &mut self, chan : String ) {
+    chan = strip_colon( chan );
     let debugline = format! ( "dropping {} from name lists", chan );
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
@@ -135,6 +137,8 @@ impl IrcInfo {
   }
 
   fn add_to_channel( &mut self, chan : String, nick : String ) {
+    chan = strip_colon( chan );
+    nick = strip_colon( nick );
     let debugline = format! ( "adding {} to {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     match self.names.get_mut( &chan ) {
@@ -144,6 +148,8 @@ impl IrcInfo {
   }
 
   fn remove_from_channel( &mut self, chan : String, nick : String ) {
+    chan = strip_colon( chan );
+    nick = strip_colon( nick );
     let debugline = format! ( "removing {} from {}'s name list", nick, chan );
     debug::info( debugline.as_slice( ) );
     let chan_list = match self.names.get_mut( &chan ) {
@@ -180,4 +186,12 @@ fn in_vec < T > ( v : &Vec < T >, el : T ) -> bool
     }
   }
   return false;
+}
+
+fn strip_colon <'a> ( s : &'a Str ) -> Str {
+  if s.as_slice( ).starts_with( ":" ) {
+    s.as_slice( ).slice_from( 1 ).to_string( )
+  } else {
+    s
+  }
 }
