@@ -209,7 +209,7 @@ impl Message {
   ///
   /// The parameter at the given index or None if that parameter doesn't exist
   pub fn param( &self, num : usize ) -> Option < &str > {
-    let re = match Regex::new( r"(:.*|\S+)" ) {
+    let re = match Regex::new( r":([\S ]*)|(\S+)" ) {
       Ok ( re ) => re,
       Err( e  ) => {
         debug::err( "creating msg parameter parser", e.msg.as_slice( ) );
@@ -219,7 +219,10 @@ impl Message {
     let mut i = 1;
     for cap in re.captures_iter( self.params.as_slice( ) ) {
       if i == num {
-        return cap.at( 1 )
+        match cap.at( 1 ) {
+          Some( param ) => return Some( param ),
+          None          => return cap.at( 2 ),
+        };
       }
       i += 1;
     }
@@ -263,7 +266,7 @@ impl Message {
   ///
   /// The trailing parameter or None if the message has no trailing parameter
   pub fn trailing( &self ) -> Option < &str > {
-    let re = match Regex::new( r":(.*)" ) {
+    let re = match Regex::new( r":([\S ]*)" ) {
       Ok ( re ) => re,
       Err( e  ) => {
         debug::err( "creating msg trailing parser", e.msg.as_slice( ) );
@@ -382,7 +385,7 @@ mod test {
     assert! ( mymessage.param( 1 ).unwrap( ) == "param1" );
     assert! ( mymessage.param( 2 ).unwrap( ) == "param2" );
     assert! ( mymessage.param( 3 ).unwrap( ) == "param3" );
-    assert! ( mymessage.param( 4 ).unwrap( ) == ":param4 param5" );
+    assert! ( mymessage.param( 4 ).unwrap( ) == "param4 param5" );
     assert! ( mymessage.param( 5 ).is_none( ) );
   }
 
