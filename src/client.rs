@@ -166,7 +166,7 @@ impl Client {
   ) {
     // parse our raw string into a usable message
     let msg = match message::Message::parse( 
-      ctcp::ctcp_dequote( ctcp::low_level_dequote( s.clone( ) ) ).as_slice( ) ) {
+      ctcp::low_level_dequote( s.clone( ) ).as_slice( ) ) {
       Some ( m ) => m,
       None       => {
         debug::err( "parsing IRC message", "message is not an IRC message" );
@@ -205,8 +205,7 @@ impl Client {
   /// * `s` - String contents of the ConnEvent, the message to send
   /// * `w` - mutable reference to the TcpStream writer
   fn handle_send( s : String, w : &mut io::LineBufferedWriter < io::TcpStream > ) {
-    match w.write_line( ctcp::low_level_quote( 
-      ctcp::ctcp_quote( s.clone( ) ) ).as_slice( ) ) {
+    match w.write_line( ctcp::low_level_quote( s.clone( ) ).as_slice( ) ) {
       Ok ( _ )  => (),
       Err ( e ) => debug::err( "writing sent message", e.desc ),
     }
@@ -415,7 +414,8 @@ impl Client {
   ///
   /// * This is equivalent to doing "/me does an action" in a typical IRC client
   pub fn action( &mut self, target : &str, message : &str ) {
-    let sendline = format! ( "ACTION {}", message );
+    let sendline = format! ( "ACTION {}", 
+      ctcp::ctcp_quote( String::from_str( message ) ).as_slice( ) );
     self.send_ctcp( target, sendline.as_slice( ) );
   }
   

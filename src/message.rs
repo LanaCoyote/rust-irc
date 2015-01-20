@@ -154,7 +154,7 @@ impl Message {
   pub fn is_message( &self ) -> bool {
     match self.code.as_slice( ) {
       "PRIVMSG" | "NOTICE" => true,
-      _                   => false,
+      _                    => false,
     }
   }
 
