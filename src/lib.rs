@@ -5,7 +5,7 @@ extern crate regex;
 // identify custom modules
 pub mod client;
 pub mod connection;
-mod ctcp;
+pub mod ctcp;
 pub mod info;
 pub mod message;
 pub mod reader;
