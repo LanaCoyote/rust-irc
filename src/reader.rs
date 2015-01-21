@@ -6,12 +6,15 @@ use std::time::Duration;      // used for the sleep timer
 use connection::ConnEvent;    // used for passing back messages to the client
 use utils::debug;             // output debug for logging errors
 
-static IRC_TRY_INITIAL  : u8    = 0;  // initial number of tries attempted
-static IRC_TRY_SUCCESS  : u8    = 0;  // set the try value to this on success
-static IRC_TRY_FAILURE  : u8    = 1;  // try increment on failure
-static IRC_TRY_LIMIT    : u8    = 5;  // maximum number of tries before failing
-static IRC_READ_TIMEOUT : usize = 5;  // initial time between irc reads
-static IRC_READ_MULT    : usize = 2;  // multiply timeout by this every failure
+type   TTRY                    = u8;
+type   TTIMEOUT                = i64;
+
+static IRC_TRY_INITIAL  : TTRY = 0;  // initial number of tries attempted
+static IRC_TRY_SUCCESS  : TTRY = 0;  // set the try value to this on success
+static IRC_TRY_FAILURE  : TTRY = 1;  // try increment on failure
+static IRC_TRY_LIMIT    : TTRY = 5;  // maximum number of tries before failing
+static IRC_READ_TIMEOUT : TTIMEOUT = 5;  // initial time between irc reads
+static IRC_READ_MULT    : TTIMEOUT = 2;  // multiply timeout by this on fail
 
 /// `IrcReader` handles reading from an IRC stream
 ///
@@ -46,7 +49,7 @@ impl IrcReader {
   /// # Returns
   ///
   /// true if the connection is valid, false otherwise.
-  fn has_peer ( &self ) -> bool {
+  fn has_peer ( &mut self ) -> bool {
     // get the peer name from our tcp connection
     match self.tcp.peer_name() {
       // we did it, we're connected properly
@@ -78,24 +81,24 @@ impl IrcReader {
   ///
   /// IRC_TRY_SUCCESS if the operation completed successfully. Otherwise it
   /// returns try plus IRC_TRY_FAILURE.
-  fn handle_read_success ( &self, line : String, try : u8 ) -> u8 {
+  fn handle_read_success ( &self, line : String, try : TTRY ) -> TTRY {
     // trim whitespace (including the newline)
     let pass = line.as_slice( ).trim_right( );
     
     // pass our message back to the client
-    match self.chan.send( ConnEvent::Recv( pass ) ) {
+    match self.chan.send( ConnEvent::Recv( pass.to_string( ) ) ) {
       // it worked, reset the try counter
       Ok ( _ )  => {
-        if try > 0 {
+        if try > IRC_TRY_SUCCESS {
           debug::info( format! ( "successful read after {} attempts", try ) );
         }
         IRC_TRY_SUCCESS
       },
       
       // an error occurred
-      Err ( e ) => {
-        debug::err( "irc reader send", e.desc );
-        try + IRC_TRY_FAILURE
+      Err ( _ ) => {
+        debug::err( "irc reader send", "receiver hung up" );
+        IRC_TRY_LIMIT
       },
     }
   }
@@ -111,7 +114,7 @@ impl IrcReader {
   ///
   /// IRC_TRY_LIMIT if the error is an EOF. Otherwise it increments try by
   /// IRC_TRY_FAILURE.
-  fn handle_read_failure ( &self, e : io::IoError, try : u8 ) -> u8 {
+  fn handle_read_failure ( &self, e : io::IoError, try : TTRY ) -> TTRY {
     match e.kind {
       // eof means the tcp connection was closed
       io::IoErrorKind::EndOfFile => {
@@ -143,7 +146,7 @@ impl IrcReader {
   /// None if the reader has attempted too many reads without success. If the
   /// read failed, it sleeps and returns the timeout times IRC_READ_MULT. If the
   /// read succeeded it returns IRC_READ_TIMEOUT.
-  fn get_next_try ( &self, try : u8, time : usize ) -> Option < usize > {
+  fn get_next_try ( &self, try : TTRY, time : TTIMEOUT ) -> Option < TTIMEOUT > {
     // end the reader if we've gone over the try limit
     if try >= IRC_TRY_LIMIT {
       debug::err( "irc reader", format! ( "failed after {} retries", try ) );
@@ -156,7 +159,7 @@ impl IrcReader {
       Some( time * IRC_READ_MULT )
       
     // we did it, reset the timer
-    } else if try == IRC_TRY_SUCCESS {
+    } else {
       Some( IRC_READ_TIMEOUT )
     }
   }
