@@ -2,6 +2,18 @@ use regex::Regex;
 
 use utils::debug;
 
+pub type TPARAMINDEX              = usize;
+
+static PARAM_INDEX  : TPARAMINDEX = 1;  // index of the first msg parameter
+static PARAM_TGROUP : TPARAMINDEX = 1;  // capture group for trailing param
+static PARAM_PGROUP : TPARAMINDEX = 2;  // capture group for all other params
+static PARSE_SOURCE : TPARAMINDEX = 1;  // capture group of source in parse()
+static PARSE_CODE   : TPARAMINDEX = 2;  // capture group of code in parse()
+static PARSE_PARAMS : TPARAMINDEX = 3;  // capture group of params in parse()
+static TARGET_STD   : TPARAMINDEX = 1;  // index of target for a standard cmd
+static TARGET_KICK  : TPARAMINDEX = 2;  // index of target for a kick cmd
+static TARGET_OTHER : TPARAMINDEX = 1;  // index of target for other msg codes
+
 /// `Source` abstracts the source of an IRC message
 ///
 /// # Options
@@ -70,7 +82,7 @@ impl Message {
   /// - The direction of a message created by `new` is always `Outgoing`
   pub fn new( source : Source, code : &str, params : &str ) -> Message {
     Message {
-      dir     : Direction::Outgoing,
+      dir     : Direction::Outgoing,  // new is designed for outgoing messages
       source  : source.clone( ),
       code    : code.to_string( ),
       params  : params.to_string( ),
@@ -92,28 +104,29 @@ impl Message {
   ///
   /// - The direction of a message created by `parse` is always `Incoming`
   pub fn parse( msg : &str ) -> Option < Message > {
+    // set up our regex
     let re      = match Regex::new( r"^(:\S+)?\s*(\S+)\s+(.*)\r?$" ) {
       Ok ( re ) => re,
       Err( e  ) => {
-        debug::err( "creating message parser", e.msg.as_slice( ) );
+        debug::err( "creating message parser", e.msg );
         return None;
       },
     };
-    let capture = re.captures( msg );
 
-    match capture {
+    // extract message components
+    match re.captures( msg ) {
       Some ( cap )  => {
         Some( Message {
           dir     : Direction::Incoming,
-          source  : match cap.at( 1 ) {
+          source  : match cap.at( PARSE_SOURCE ) {
             None        => Source::None,
             Some( src ) => Source::Sender( src.to_string( ) ),
           },
-          code    : match cap.at( 2 ) {
+          code    : match cap.at( PARSE_CODE ) {
             None        => "".to_string( ),
             Some( cod ) => cod.to_string( ),
           },
-          params  : match cap.at( 3 ) {
+          params  : match cap.at( PARSE_PARAMS ) {
             None        => "".to_string( ),
             Some( prm ) => prm.to_string( ),
           },
@@ -178,10 +191,10 @@ impl Message {
   pub fn nick( &self ) -> Option < String > {
     match self.source.clone( ) {
       Source::Sender ( s ) => {
-        let re = match Regex::new( r":([\w]+)" ) {
+        let re = match Regex::new( r":([\w]+)!?" ) {
           Ok ( re ) => re,
           Err ( e ) => {
-            debug::err( "creating nick parser", e.msg.as_slice( ) );
+            debug::err( "creating nick parser", e.msg );
             return None;
           },
         };
@@ -208,20 +221,20 @@ impl Message {
   /// # Returns
   ///
   /// The parameter at the given index or None if that parameter doesn't exist
-  pub fn param( &self, num : usize ) -> Option < &str > {
+  pub fn param( &self, num : TPARAMINDEX ) -> Option < &str > {
     let re = match Regex::new( r":([\S ]*)|(\S+)" ) {
       Ok ( re ) => re,
       Err( e  ) => {
-        debug::err( "creating msg parameter parser", e.msg.as_slice( ) );
+        debug::err( "creating msg parameter parser", e.msg );
         return None;
       },
     };
-    let mut i = 1;
+    let mut i = PARAM_INDEX;
     for cap in re.captures_iter( self.params.as_slice( ) ) {
       if i == num {
-        match cap.at( 1 ) {
+        match cap.at( PARAM_TGROUP ) {
           Some( param ) => return Some( param ),
-          None          => return cap.at( 2 ),
+          None          => return cap.at( PARAM_PGROUP ),
         };
       }
       i += 1;
@@ -254,9 +267,9 @@ impl Message {
     match self.code.as_slice( ) {
       "JOIN" | "PART" | "MODE" | "TOPIC" | "INVITE" | "PRIVMSG" | "NOTICE" |
         "WHOIS" | "WHOWAS" | "KILL" | "PING" | "PONG" | "SUMMON" | "ISON" =>
-        self.param( 1 ),
-      "KICK" => self.param( 2 ),
-      _      => self.param( 1 ),
+        self.param( TARGET_STD ),
+      "KICK" => self.param( TARGET_KICK ),
+      _      => self.param( TARGET_OTHER ),
     }
   }
 
@@ -274,7 +287,7 @@ impl Message {
       },
     };
     match re.captures( self.params.as_slice( ) ) {
-      Some( cap )  => cap.at( 1 ),
+      Some( cap )  => cap.at( PARAM_TGROUP ),
       None         => None,
     }
   }
@@ -373,7 +386,7 @@ mod test {
   #[test]
   fn test_nick () {
     let nonickmessage = super::Message::privmsg( "Detective", "Hello!" );
-    let nickmessage = super::Message::parse( ":Detective JOIN #rust" ).unwrap( );
+    let nickmessage = super::Message::parse( ":Detective!*@* JOIN #rust" ).unwrap( );
 
     assert! ( nickmessage.nick( ).is_some( ) );
     assert! ( nonickmessage.nick( ).is_none( ) );
