@@ -1,4 +1,4 @@
-use std::io;                  // io for timers and TcpStreams
+use std::old_io as io;
 use std::sync::mpsc::Sender;  // sender channel for passing back data
 use std::time::Duration;      // used for the sleep timer
 

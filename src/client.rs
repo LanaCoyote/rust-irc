@@ -1,5 +1,5 @@
 // import built in modules
-use std::io;
+use std::old_io as io;
 use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 
